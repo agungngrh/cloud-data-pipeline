@@ -73,7 +73,7 @@ Event generator → Pub/Sub → Apache Beam (validation + transform) → BigQuer
 | Data Warehouse       | Google BigQuery            |
 | Cloud Storage        | Google Cloud Storage       |
 | Message Broker       | Google Cloud Pub/Sub       |
-| Streaming Processing | Apache Beam (DirectRunner) |
+| Streaming Processing | Apache Beam                |
 | Containerization     | Docker & Docker Compose    |
 
 
