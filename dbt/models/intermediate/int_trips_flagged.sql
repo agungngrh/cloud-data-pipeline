@@ -12,6 +12,7 @@ recomputed as (
         coalesce(fare_amount, 0) + coalesce(extra, 0) + coalesce(mta_tax, 0)
             + coalesce(tip_amount, 0) + coalesce(tolls_amount, 0)
             + coalesce(improvement_surcharge, 0) + coalesce(congestion_surcharge, 0)
+            + coalesce(cbd_congestion_fee, 0)
             as total_amount_recomputed
     from source
 ),
