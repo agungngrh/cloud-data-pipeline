@@ -107,7 +107,6 @@ cloud-data-pipeline
 ---
 
 
-
 ## Setup & Configuration
 
 ### Prerequisites
@@ -160,14 +159,32 @@ cloud-data-pipeline
    gcloud pubsub subscriptions create <your-subscription-name> --topic=<your-topic-name>
    ```
 
-6. **Start Airflow locally**
+6. **Set up the dbt seed**
+
+   The taxi_zone_lookup.csv file is a static reference dataset managed by dbt as a seed. Copy it from GCS into the dbt seeds directory:
+
+   ```bash
+   gsutil cp gs://<your-bucket>/raw/taxi_zone_lookup.csv dbt/seeds/taxi_zone_lookup.csv
+   ```
+
+   Load the seed into the BigQuery raw dataset:
+
+   ```bash
+   dbt seed --select taxi_zone_lookup
+   ```
+
+   The seed is loaded once during the initial setup and is not reloaded by the monthly Airflow batch pipeline
+
+7. **Start Airflow locally**
 
    ```bash
    docker compose up -d airflow-init
    docker compose up -d
    ```
 
+
 ---
+
 
 ## Running the Batch Pipeline
 
@@ -176,6 +193,8 @@ The batch pipeline is fully orchestrated by Airflow.
 * **DAG ID:** `agungnugraha_batch_trip_pipeline`
 * **Schedule:** `@monthly`, backfilled for `2026-04-01` → `2026-05-31`
 * **Flow:** `ingestion_layer` → `staging_layer` → `intermediate_layer` → `marts_layer`
+
+The static taxi_zone_lookup reference data is managed separately through a dbt seed and is therefore not loaded by Airflow.
 
 Each dbt layer runs `dbt run` followed by `dbt test`, parameterized by `reporting_year_month` derived from the DAG's `data_interval_start`.
 
