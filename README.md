@@ -326,6 +326,12 @@ Data quality queries analyze validation results from `dq_check_result` and quara
 
 Successful Airflow DAG execution.
 
+### dbt Documentation
+
+![dbt documentation](docs/images/dbt_docs.png)
+
+dbt documentation showing the int_trips_enriched model, including its materialization, description, columns, and data tests.
+
 ### dbt Transformation
 
 ![dbt Lineage](docs/images/dbt_lineage_graph.png)
