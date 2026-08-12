@@ -279,9 +279,9 @@ secrets/
 # Environment & Credentials
 # ==========================================
 .env
-secrets/*.json
-*.json
-!data/profile/profile_output.json  # Kecualikan jika profil butuh disimpan
+secrets/*
+!secrets/.gitkeep
+!data/profile/profile_output.json
 
 # ==========================================
 # Python Artifacts
@@ -305,6 +305,7 @@ airflow/airflow-webserver.pid
 dbt/target/
 dbt/logs/
 dbt/dbt_packages/
+dbt/seeds/taxi_zone_lookup.csv
 
 # ==========================================
 # Local Raw Data (Large Files)
