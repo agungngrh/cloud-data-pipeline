@@ -244,6 +244,16 @@ python3 -m scripts.streaming.pipeline
 
 This mode uses `DirectRunner` by default to process events directly in the local environment.
 
+### 4. Data Freshness & Observability
+
+To ensure streaming pipeline SLA compliance, dbt monitors real-time ingestion latency on `stream_trips_clean`:
+
+```bash
+dbt source freshness --select source:stream_trips_clean
+```
+
+Failures usually mean upstream Pub/Sub or streaming worker issues, letting us catch delays before they hit downstream consumers.
+
 
 ---
 
@@ -273,19 +283,26 @@ The data warehouse follows a layered structure for both batch and streaming data
 
 ## Data Quality Validation
 
-Both batch and streaming pipelines use the same core validation rules to keep data quality consistent across both processing paths.
+The batch and streaming pipelines apply the same core validation and transformation rules to maintain consistent data quality across both processing paths.
 
 ### Validation Rules
 
-The pipelines check for complete records, valid trip distance, valid fares, valid passenger counts, and valid pickup and drop-off locations. An `amount_mismatch` check is also performed by comparing `total_amount` with the calculated fare components, but it is only used as an informational check.
+The following rules are applied to both batch and streaming data:
+
+- `is_complete_record` — required fields are not null.
+- `is_valid_distance` — `trip_distance >= 0`.
+- `is_valid_fare` — `fare_amount >= 0` and `total_amount >= 0`.
+- `is_valid_passenger_count` — `passenger_count >= 1`.
+- `is_valid_location` — pickup and drop-off locations are not unknown zones (`264`, `265`).
+- `amount_mismatch` is also calculated as an informational check by comparing `total_amount` with the recomputed fare components. It does not affect record validity.
 
 ### Quarantine Handling
 
-Records that fail validation are moved to quarantine instead of being discarded. Batch failures are stored in `int_quarantine_trips`, while streaming failures are stored in `stream_trips_quarantine` together with the validation failure reason.
+Records that fail validation are not discarded. Batch failures are routed to `int_quarantine_trips`, while streaming failures are routed to `stream_trips_quarantine` together with the specific validation failure reason for auditing.
 
 ### Data Quality Results
 
-The batch pipeline stores validation results in `dq_check_result`, including the failure rate for each rule and reporting period.
+The batch pipeline records validation results in `dq_check_result`, including the failed-row percentage for each rule. This provides an overview of data quality for each reporting period.
 
 
 ---
