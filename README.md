@@ -97,8 +97,8 @@ cloud-data-pipeline
 │   └── streaming/                       # Event generator, publisher, and Beam validation pipeline
 ├── utils/                               # Shared modules (logger, BigQuery schema, validation rules)
 ├── .env.example
-├── .gitignore                           # Excludes .env, secrets/, data/, .venv/
-├── docker-compose.yml                   # Local Airflow + Postgres metastore
+├── .gitignore                          
+├── docker-compose.yml                   
 ├── requirements.txt
 └── README.md
 ```
@@ -245,7 +245,7 @@ The data warehouse follows a layered structure for both batch and streaming data
 
 ## Data Quality Validation
 
-The batch and streaming pipelines apply the same core validation rules to maintain consistent data quality across both processing paths.
+The batch and streaming pipelines apply the same core validation and transformation rules to maintain consistent data quality across both processing paths.
 
 ### Validation Rules
 
