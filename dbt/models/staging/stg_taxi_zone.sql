@@ -3,4 +3,4 @@ select
     Borough as borough,
     Zone as zone,
     service_zone
-from {{ source('raw', 'taxi_zone_lookup') }}
+from {{ ref('taxi_zone_lookup') }}

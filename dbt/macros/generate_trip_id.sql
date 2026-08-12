@@ -5,8 +5,7 @@
             coalesce(cast(pickup_datetime as string), ''),
             coalesce(cast(dropoff_datetime as string), ''),
             coalesce(cast(pu_location_id as string), ''),
-            coalesce(cast(do_location_id as string), ''),
-            coalesce(cast(fare_amount as string), '')
+            coalesce(cast(do_location_id as string), '')
         )
     )
 {% endmacro %}

@@ -4,4 +4,3 @@ sources:
     schema: "{{ env_var('BQ_DATASET_RAW') }}"
     tables:
       - name: raw_taxi_trip
-      - name: taxi_zone_lookup

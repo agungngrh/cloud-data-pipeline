@@ -42,3 +42,13 @@ models:
     marts:
       +schema: "{{ env_var('BQ_DATASET_MARTS', 'cp3_agungnugraha_marts') }}"
       +materialized: table
+
+seeds:
+  capstone3:
+    taxi_zone_lookup:
+      +schema: raw
+      +column_types:
+        LocationID: INT64
+        Borough: STRING
+        Zone: STRING
+        service_zone: STRING

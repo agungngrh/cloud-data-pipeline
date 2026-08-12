@@ -52,13 +52,3 @@ models:
           - accepted_values:
               values: ['Y', 'N']
               quote: true
-
-  - name: stg_taxi_zone
-    description: "Taxi Zone reference data."
-
-    columns:
-      - name: location_id
-        description: "Unique identifier for each taxi zone."
-        data_tests:
-          - not_null
-          - unique
