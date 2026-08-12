@@ -14,16 +14,16 @@ The platform covers the full data lifecycle, from raw ingestion, cleaning, and v
 2. [Data Source Information](#data-source-information)
 3. [Technology Stack](#technology-stack)
 4. [Project Structure](#project-structure)
-5. [Setup & Configuration](#setup--configuration)
-6. [Running the Batch Pipeline](#running-the-batch-pipeline)
-7. [Running the Streaming Pipeline](#running-the-streaming-pipeline)
-8. [Data Model](#data-model)
-9. [Data Quality Validation](#data-quality-validation)
-10. [Idempotency Strategy](#idempotency-strategy)
-11. [Partitioning & Clustering](#partitioning--clustering)
-12. [Analytical Queries](#analytical-queries)
-13. [Proof of Execution](#proof-of-execution)
-14. [Assumptions](#assumptions)
+5. [Assumptions](#assumptions)
+6. [Setup & Configuration](#setup--configuration)
+7. [Running the Batch Pipeline](#running-the-batch-pipeline)
+8. [Running the Streaming Pipeline](#running-the-streaming-pipeline)
+9. [Data Model](#data-model)
+10. [Data Quality Validation](#data-quality-validation)
+11. [Idempotency Strategy](#idempotency-strategy)
+12. [Partitioning & Clustering](#partitioning--clustering)
+13. [Analytical Queries](#analytical-queries)
+14. [Proof of Execution](#proof-of-execution)
 15. [Future Development](#future-development)
 
 
@@ -37,7 +37,7 @@ The pipeline has two independent data flows that converge at the BigQuery wareho
 
 ### Batch
 
-GCS (raw Parquet/CSV) → Airflow (`GCSToBigQueryOperator`) → BigQuery `raw` → dbt (`staging` → `intermediate` → `marts`)
+GCS (raw Parquet) → Airflow (`GCSToBigQueryOperator`) → BigQuery `raw` → dbt (`staging` → `intermediate` → `marts`)
 
 ### Streaming
 
@@ -49,15 +49,15 @@ Event generator → Pub/Sub → Apache Beam (validation + transform) → BigQuer
 
 ## Data Source Information
 
-| Category           | Parameter         | Details                                                   |
-| ------------------ | ----------------- | --------------------------------------------------------- |
-| **Batch Data**     | Dataset           | NYC Green Taxi Trip Records                               |
-|                    | Processing Period | April – May 2026                                          |
-|                    | Raw Records       | ~89,159 rows                                              |
-|                    | Source Format     | Parquet (trips) + CSV (zone lookup)                       |
-| **Streaming Data** | Event Type        | Simulated real-time trip transactions (JSON)              |
-|                    | Event Generator   | Python publisher, sampling based on batch EDA             |
-|                    | Target Volume     | ~89,159 events (June – July 2026, mirroring batch volume) |
+| Category           | Parameter         | Details                                                    |
+| ------------------ | ----------------- | ---------------------------------------------------------- |
+| **Batch Data**     | Dataset           | NYC Green Taxi Trip Records                                |
+|                    | Processing Period | April – May 2026                                           |
+|                    | Raw Records       | ~89,159 rows                                               |
+|                    | Source Format     | Parquet (trips) + CSV (static zone lookup)                 |
+| **Streaming Data** | Event Type        | Simulated real-time trip transactions (JSON)               |
+|                    | Event Generator   | Python publisher based on patterns observed in batch data  |
+|                    | Target Volume     | ~89,159 events (June – July 2026)                          |
 
 
 ---
@@ -69,7 +69,7 @@ Event generator → Pub/Sub → Apache Beam (validation + transform) → BigQuer
 | -------------------- | -------------------------- |
 | Programming Language | Python 3.11                |
 | Data Orchestration   | Apache Airflow 2.10.5      |
-| Data Transformation  | dbt (BigQuery adapter)     |
+| Data Transformation  | dbt                        |
 | Data Warehouse       | Google BigQuery            |
 | Cloud Storage        | Google Cloud Storage       |
 | Message Broker       | Google Cloud Pub/Sub       |
@@ -83,25 +83,32 @@ Event generator → Pub/Sub → Apache Beam (validation + transform) → BigQuer
 ## Project Structure
 
 ```text
-cloud-data-pipeline
-├── airflow/
-│   └── dags/
-│       └── batch_pipeline.py            # Main Airflow DAG (ingestion + dbt orchestration)
-├── config/                              # Global settings (.env-backed) & local constants
-├── dbt/                                 # dbt project (staging, intermediate, marts, analyses)
-├── docs/
-│   └── images/                          # Architecture diagram & execution proof screenshots
-├── notebook/                            # Exploratory Data Analysis (EDA) on raw taxi dataset
-├── scripts/
-│   ├── batch/                           # GCS bucket setup & raw data upload helpers
-│   └── streaming/                       # Event generator, publisher, and Beam validation pipeline
-├── utils/                               # Shared modules (logger, BigQuery schema, validation rules)
+cloud-data-pipeline/
+├── airflow/dags/          # Airflow DAGs
+├── config/                # Project configuration
+├── dbt/                   # dbt models, seeds, and analyses
+├── docs/                  # Documentation and images
+├── notebook/              # EDA notebooks
+├── scripts/               # Batch and streaming scripts
+├── utils/                 # Shared utilities
 ├── .env.example
-├── .gitignore                          
-├── docker-compose.yml                   
+├── .gitignore
+├── docker-compose.yml
 ├── requirements.txt
 └── README.md
 ```
+
+
+---
+
+
+## Assumptions
+
+- The batch pipeline is designed to be safely re-run for the same `reporting_year_month` without creating duplicate records.
+- The taxi zone lookup data is treated as static reference data and is managed separately as a dbt seed.
+- Streaming events for June–July 2026 are simulated based on statistical patterns observed in the April–May batch data.
+- Each streaming event is assumed to have a unique `event_id` for event identification and duplicate prevention.
+- Batch and streaming data are expected to follow the same core data quality rules.
 
 
 ---
@@ -161,7 +168,7 @@ cloud-data-pipeline
 
 6. **Set up the dbt seed**
 
-   The taxi_zone_lookup.csv file is a static reference dataset managed by dbt as a seed. Copy it from GCS into the dbt seeds directory:
+   The `taxi_zone_lookup.csv` file is a static reference dataset managed by dbt as a seed. Copy it from GCS into the dbt seeds directory:
 
    ```bash
    gsutil cp gs://<your-bucket>/raw/taxi_zone_lookup.csv dbt/seeds/taxi_zone_lookup.csv
@@ -170,10 +177,12 @@ cloud-data-pipeline
    Load the seed into the BigQuery raw dataset:
 
    ```bash
+   cd dbt
    dbt seed --select taxi_zone_lookup
+   cd ..
    ```
 
-   The seed is loaded once during the initial setup and is not reloaded by the monthly Airflow batch pipeline
+   The seed is loaded once during the initial setup and is not reloaded by the monthly Airflow batch pipeline.
 
 7. **Start Airflow locally**
 
@@ -247,7 +256,7 @@ The data warehouse follows a layered structure for both batch and streaming data
 
 | Layer | Models | Purpose |
 |---|---|---|
-| Raw | `raw_taxi_trip`, `raw_taxi_zone` | Stores source data as ingested from the source files. |
+| Raw | `raw_taxi_trip`, `taxi_zone_lookup` | Stores source data as ingested from the source files. |
 | Staging | `stg_taxi_trip`, `stg_taxi_zone` | Standardizes the raw trip data. |
 | Intermediate | `int_trips_flagged`, `int_trips_clean`, `int_trips_enriched`, `int_quarantine_trips`, `dq_check_result` | Applies validation, transformation, join, and quarantine handling. |
 | Marts | `daily_trips`, `hourly_demand`, `payment_behavior`, `route`, `zone_performance_summary`, `batch_streaming_comparison` | Provides aggregated datasets for analytical use. |
@@ -264,26 +273,20 @@ The data warehouse follows a layered structure for both batch and streaming data
 
 ## Data Quality Validation
 
-The batch and streaming pipelines apply the same core validation and transformation rules to maintain consistent data quality across both processing paths.
+Both batch and streaming pipelines use the same core validation rules to keep data quality consistent across both processing paths.
 
 ### Validation Rules
 
-The following rules are applied to both batch and streaming data:
-
-* `is_complete_record` — required fields are not null.
-* `is_valid_distance` — `trip_distance >= 0`.
-* `is_valid_fare` — `fare_amount >= 0` and `total_amount >= 0`.
-* `is_valid_passenger_count` — `passenger_count >= 1`.
-* `is_valid_location` — pickup and drop-off locations are not unknown zones (`264`, `265`).
-* `amount_mismatch` is also calculated as an informational check by comparing `total_amount` with the recomputed fare components. It does not affect record validity.
+The pipelines check for complete records, valid trip distance, valid fares, valid passenger counts, and valid pickup and drop-off locations. An `amount_mismatch` check is also performed by comparing `total_amount` with the calculated fare components, but it is only used as an informational check.
 
 ### Quarantine Handling
 
-Records that fail validation are not discarded. Batch failures are routed to `int_quarantine_trips`, while streaming failures are routed to `stream_trips_quarantine` together with the specific validation failure reason for auditing.
+Records that fail validation are moved to quarantine instead of being discarded. Batch failures are stored in `int_quarantine_trips`, while streaming failures are stored in `stream_trips_quarantine` together with the validation failure reason.
 
 ### Data Quality Results
 
-The batch pipeline records validation results in `dq_check_result`, including the failed-row percentage for each rule. This provides an overview of data quality for each reporting period.
+The batch pipeline stores validation results in `dq_check_result`, including the failure rate for each rule and reporting period.
+
 
 ---
 
@@ -292,11 +295,9 @@ The batch pipeline records validation results in `dq_check_result`, including th
 
 ### Batch
 
-* Pipeline execution is parameterized using `reporting_year_month`.
-* Raw data uses `WRITE_TRUNCATE`, so the same monthly data can be reloaded without creating duplicate records.
-* `int_trips_enriched` uses a dbt incremental `merge` strategy with `trip_id` as the unique key, preventing duplicates when the same month is reprocessed.
-* `dq_check_result` uses an incremental `merge` strategy with `reporting_period` and `rule_name` as the unique key, updating existing quality metrics instead of creating duplicates.
-* Mart tables are rebuilt on each run, replacing their existing contents.
+- Pipeline execution is parameterized using `reporting_year_month`.
+- Existing records for the processing period are removed before new data is loaded to support idempotent reprocessing.
+- Incremental models use a merge strategy with defined unique keys to prevent duplicates and update existing records when the same period is reprocessed, while mart models are rebuilt on each run to ensure the latest results.
 
 ### Streaming
 
@@ -310,10 +311,13 @@ The batch pipeline records validation results in `dq_check_result`, including th
 
 ## Partitioning & Clustering
 
-| Table                                            | Partition                      | Cluster                        | Reason                                                                                                                                                                                            |
-| ------------------------------------------------ | ------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `raw_taxi_trip`                                  | `lpep_pickup_datetime` (MONTH) | `PULocationID`, `DOLocationID` | Monthly partitioning aligns with the batch processing grain and enables partition pruning for time-based queries. Zone columns are frequently used for downstream filtering, grouping, and joins. |
-| `stream_trips_clean` / `stream_trips_quarantine` | `event_time` (DAY)             | None                           | Streaming data arrives continuously and is queried primarily by event time. Daily partitions reduce the amount of data scanned for time-scoped queries.                                           |
+### Batch
+
+The `raw_taxi_trip` table is partitioned by `lpep_pickup_datetime` on a monthly basis. It is also clustered by `PULocationID` and `DOLocationID` because these columns are often used for filtering, grouping, and joining the data. Monthly partitioning also helps reduce the amount of data scanned when running queries for a specific period.
+
+### Streaming
+
+The `stream_trips_clean` and `stream_trips_quarantine` tables are partitioned by `event_time` on a daily basis. No clustering is used because the streaming data is relatively small and is mainly queried by event time. Daily partitioning helps reduce the amount of data scanned when querying a specific time period.                                         |
 
 
 ---
@@ -321,17 +325,17 @@ The batch pipeline records validation results in `dq_check_result`, including th
 
 ## Analytical Queries
 
-### 1. Batch-only
+### 1. Batch Analysis
 
-Analytical queries are built on the batch marts to analyze historical trip patterns, including daily and hourly demand, payment behavior, route performance, and zone performance.
+The batch marts are used to analyze historical trip patterns, including daily and hourly demand, payment behavior, route performance, and zone performance.
 
 ### 2. Batch vs. Streaming Comparison
 
-`batch_streaming_comparison.sql` compares batch and streaming data using `trip_count`, `avg_trip_distance`, `avg_fare_amount`, and `avg_total_amount`. The comparison is used to verify that the generated streaming data remains consistent with the statistical patterns observed in the batch data.
+The `batch_streaming_comparison.sql` query compares batch and streaming data using trip count, average trip distance, average fare amount, and average total amount. This helps check whether the generated streaming data follows the patterns found in the batch data.
 
 ### 3. Data Quality Analysis
 
-Data quality queries analyze validation results from `dq_check_result` and quarantined streaming records from `stream_trips_quarantine`. These queries provide visibility into rule failure rates and the reasons why streaming events were rejected.
+Data quality queries are used to review validation results and quarantined records. They show rule failure rates and the main reasons why streaming events were rejected.
 
 
 ---
@@ -404,16 +408,6 @@ Invalid streaming events routed to `stream_trips_quarantine`, with their validat
 ![Batch vs. Streaming Comparison](docs/images/bigquery_comparison_query.png)
 
 Batch and streaming comparison results.
-
-
----
-
-
-## Assumptions
-
-* The batch pipeline is expected to be safely re-runnable with the same `reporting_year_month` parameters.
-* Streaming events for June–July 2026 are simulated based on statistical patterns observed in the April–May batch data.
-* Each streaming event is assumed to have a unique `event_id` used as its event identifier.
 
 
 ---
