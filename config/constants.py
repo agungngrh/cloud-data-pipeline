@@ -68,10 +68,3 @@ PAYMENT_LABELS: dict[int, str] = {
     3: "No Charge",
     4: "Dispute",
 }
-
-CORRELATED_MISSING_FIELDS = [
-    "RatecodeID",
-    "passenger_count",
-    "payment_type",
-    "trip_type",
-]
