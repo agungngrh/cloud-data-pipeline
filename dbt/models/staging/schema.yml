@@ -1,0 +1,64 @@
+models:
+  - name: stg_taxi_trip
+    description: "Cleaned and standardized NYC Green Taxi for April and May."
+
+    columns:
+      - name: vendor_id
+        data_tests:
+          - not_null
+
+      - name: pickup_datetime
+        data_tests:
+          - not_null
+
+      - name: dropoff_datetime
+        data_tests:
+          - not_null
+
+      - name: pu_location_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_taxi_zone')
+              field: location_id
+
+      - name: do_location_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_taxi_zone')
+              field: location_id
+
+      - name: payment_type
+        data_tests:
+          - accepted_values:
+              values: [1, 2, 3, 4]
+              quote: false
+
+      - name: rate_code_id
+        data_tests:
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+              quote: false
+
+      - name: trip_type
+        data_tests:
+          - accepted_values:
+              values: [1, 2]
+              quote: false
+
+      - name: store_and_fwd_flag
+        data_tests:
+          - accepted_values:
+              values: ['Y', 'N']
+              quote: true
+
+  - name: stg_taxi_zone
+    description: "Taxi Zone reference data."
+
+    columns:
+      - name: location_id
+        description: "Unique identifier for each taxi zone."
+        data_tests:
+          - not_null
+          - unique

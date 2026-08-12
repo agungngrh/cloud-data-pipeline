@@ -1,0 +1,60 @@
+models:
+  - name: daily_trips_summary
+    description: "Daily trip summary aggregated by pickup date."
+    columns:
+      - name: pickup_date
+        data_tests:
+          - not_null
+          - unique
+
+  - name: hourly_demand_summary
+    description: "Hourly trip demand patterns by pickup date and hour."
+    columns:
+      - name: pickup_date
+        data_tests:
+          - not_null
+
+  - name: payment_behavior_summary
+    description: "Trip metrics broken down by payment type."
+    columns:
+      - name: payment_type
+        data_tests:
+          - not_null
+          - unique
+
+  - name: route_performance_summary
+    description: "Route performance metrics grouped by pickup and dropoff locations."
+    columns:
+      - name: pickup_location_id
+        data_tests:
+          - not_null
+
+  - name: zone_performance_summary
+    description: "Location zone performance metrics grouped by location ID."
+    columns:
+      - name: location_id
+        data_tests:
+          - not_null
+          - unique
+
+  - name: batch_streaming_comparison
+    description: "Comparison metrics between batch and real-time streaming pipelines."
+    columns:
+      - name: data_source
+        data_tests:
+          - not_null
+          - unique
+          - accepted_values:
+              values: ['batch', 'streaming']
+      - name: trip_count
+        data_tests:
+          - not_null
+      - name: avg_trip_distance
+        data_tests:
+          - not_null
+      - name: avg_fare_amount
+        data_tests:
+          - not_null
+      - name: avg_total_amount
+        data_tests:
+          - not_null

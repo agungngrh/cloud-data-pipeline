@@ -1,0 +1,68 @@
+models:
+  - name: int_trips_flagged
+    description: "Flags valid and invalid trip records based on quality rules."
+    columns:
+      - name: vendor_id
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: fare_amount
+        data_tests:
+          - not_null
+
+      - name: trip_type
+        data_tests:
+          - accepted_values:
+                values: [1, 2]
+                quote: false 
+
+  - name: int_trips_clean
+    description: "Clean trip records that passed all quality checks."
+    columns:
+      - name: trip_id
+        data_tests:
+          - not_null
+          - unique
+
+  - name: int_quarantine_trips
+    description: "Invalid trip records isolated for audit."
+    columns:
+      - name: quarantine_reason
+        data_tests:
+          - not_null
+
+  - name: dq_check_result
+    description: "Summary of failed record counts per quality rule."
+    columns:
+      - name: rule_name
+        data_tests:
+          - not_null
+
+  - name: int_trips_enriched
+    description: "Clean trip data enriched with taxi zone lookup."
+    columns:
+      - name: trip_id
+        description: "Surrogate key generated via FARM_FINGERPRINT."
+        data_tests:
+          - not_null
+          - unique
+
+      - name: vendor_id
+        data_tests:
+          - not_null
+
+      - name: pu_location_id
+        data_tests:
+          - not_null
+          - relationships:
+                to: ref('stg_taxi_zone')
+                field: location_id
+
+      - name: do_location_id
+        data_tests:
+          - not_null
+          - relationships:
+                to: ref('stg_taxi_zone')
+                field: location_id
