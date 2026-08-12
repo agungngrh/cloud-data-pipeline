@@ -172,6 +172,7 @@ def compute_total_amount(
     tolls_amount: float,
     improvement_surcharge: float,
     congestion_surcharge: float,
+    cbd_congestion_fee: float,
 ) -> float:
     """
     Sum all fare components into total amount
@@ -184,6 +185,7 @@ def compute_total_amount(
         + tolls_amount
         + improvement_surcharge
         + congestion_surcharge
+        + cbd_congestion_fee
     )
     return round(total_amount, 2)
 
@@ -251,6 +253,7 @@ def generate_event(
         tolls_amount=tolls_amount,
         improvement_surcharge=improvement_surcharge,
         congestion_surcharge=congestion_surcharge,
+        cbd_congestion_fee=cbd_congestion_fee,
     )
 
     return {
