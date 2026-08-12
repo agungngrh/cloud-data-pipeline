@@ -216,3 +216,106 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+
+# Virtual environment
+.venv/
+venv/
+
+# Environment
+.env
+
+# Credentials
+secrets/
+*.json
+
+# dbt
+dbt/target/
+dbt/logs/
+
+# Airflow
+airflow/logs/
+
+# macOS
+.DS_Store
+
+# dbt
+dbt/profiles.yml
+
+# Byte-compiled / Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Airflow Logs & Processor
+airflow/logs/
+logs/
+
+# dbt Artifacts & Logs
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+logs/
+*.log
+
+# Data Local Output
+data/raw/*.parquet
+data/raw/*.csv
+data/profile/*.json
+
+# Credentials & Environment
+.env
+secrets/
+*.json
+!dbt/graph_summary.json  
+
+# ==========================================
+# Environment & Credentials
+# ==========================================
+.env
+secrets/*.json
+*.json
+!data/profile/profile_output.json  # Kecualikan jika profil butuh disimpan
+
+# ==========================================
+# Python Artifacts
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+
+# ==========================================
+# Airflow Logs & Data
+# ==========================================
+airflow/logs/
+airflow/airflow-webserver.pid
+
+# ==========================================
+# dbt Generated Artifacts
+# ==========================================
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+
+# ==========================================
+# Local Raw Data (Large Files)
+# ==========================================
+data/raw/*.parquet
+data/raw/*.csv
+data/profile/*.json
+
+# ==========================================
+# OS & IDE Files
+# ==========================================
+.DS_Store
+.vscode/
+.idea/
