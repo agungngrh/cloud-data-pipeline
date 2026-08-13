@@ -320,3 +320,9 @@ data/profile/*.json
 .DS_Store
 .vscode/
 .idea/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
