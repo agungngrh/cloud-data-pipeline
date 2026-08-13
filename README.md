@@ -126,71 +126,80 @@ cloud-data-pipeline/
 ### Steps
 
 1. **Clone the repository**
-
-   ```bash
+```bash
    git clone https://github.com/agungngrh/cloud-data-pipeline.git
    cd cloud-data-pipeline
-   ```
+```
 
 2. **Set up your environment file**
-
-   ```bash
+```bash
    cp .env.example .env
-   ```
-
-   Fill in `.env` with **your own** values — your GCP project ID, bucket name, BigQuery dataset names that include **your own** ID, and Pub/Sub topic and subscription names.
+```
+   Fill in `.env` with **your own** values, including your GCP project ID, bucket name, BigQuery dataset names, and Pub/Sub topic and subscription names.
 
 3. **Install Python dependencies**
-
-   ```bash
+```bash
    python3 -m venv .venv
-   source .venv/bin/activate
+   source .venv/bin/activate        # MacOS/Linux
+   .venv\Scripts\activate           # Windows
    pip install -r requirements.txt
-   ```
+```
 
-4. **Authenticate to your own GCP account**
-
-   ```bash
+4. **Authenticate to your GCP account**
+```bash
    gcloud auth login
    gcloud config set project <your-gcp-project-id>
    gcloud auth application-default login
-   ```
+```
 
-5. **Provision your own GCP infrastructure**
-
-   ```bash
+5. **Provision your GCP infrastructure**
+```bash
    python3 -m scripts.batch.create_bucket
    python3 -m scripts.batch.download_upload_raw
    python3 -m scripts.streaming.setup_bigquery
    gcloud pubsub topics create <your-topic-name>
    gcloud pubsub subscriptions create <your-subscription-name> --topic=<your-topic-name>
-   ```
+```
 
-6. **Set up the dbt seed**
+6. **Set up the dbt profile**
+
+   The dbt profile is not committed to the repository because it contains environment-specific configuration. Copy the provided template to the default dbt configuration directory:
+```bash
+   mkdir -p ~/.dbt
+   cp dbt/profiles.yml.example ~/.dbt/profiles.yml
+```
+   The profile uses environment variables from `.env` for the GCP project, BigQuery dataset, and service account key path.
+
+   Load the environment variables and verify the dbt connection:
+```bash
+   set -a
+   source .env
+   set +a
+
+   cd dbt
+   dbt debug
+   cd ..
+```
+
+7. **Set up the dbt seed**
 
    The `taxi_zone_lookup.csv` file is a static reference dataset managed by dbt as a seed. Copy it from GCS into the dbt seeds directory:
-
-   ```bash
+```bash
    gsutil cp gs://<your-bucket>/raw/taxi_zone_lookup.csv dbt/seeds/taxi_zone_lookup.csv
-   ```
-
-   Load the seed into the BigQuery raw dataset:
-
-   ```bash
+```
+   Load the seed into BigQuery:
+```bash
    cd dbt
    dbt seed --select taxi_zone_lookup
    cd ..
-   ```
-
+```
    The seed is loaded once during the initial setup and is not reloaded by the monthly Airflow batch pipeline.
 
-7. **Start Airflow locally**
-
-   ```bash
+8. **Start Airflow locally**
+```bash
    docker compose up -d airflow-init
    docker compose up -d
-   ```
-
+```
 
 ---
 
@@ -199,18 +208,19 @@ cloud-data-pipeline/
 
 The batch pipeline is fully orchestrated by Airflow.
 
-* **DAG ID:** `agungnugraha_batch_trip_pipeline`
-* **Schedule:** `@monthly`, backfilled for `2026-04-01` → `2026-05-31`
-* **Flow:** `ingestion_layer` → `staging_layer` → `intermediate_layer` → `marts_layer`
+- **DAG ID:** `agungnugraha_batch_trip_pipeline`
+- **Schedule:** `@monthly`, backfilled for `2026-04-01` → `2026-05-31`
+- **Flow:** `ingestion_layer` → `staging_layer` → `intermediate_layer` → `marts_layer`
 
-The static taxi_zone_lookup reference data is managed separately through a dbt seed and is therefore not loaded by Airflow.
+The static `taxi_zone_lookup` reference data is managed separately through a dbt seed and is not loaded by Airflow.
 
-Each dbt layer runs `dbt run` followed by `dbt test`, parameterized by `reporting_year_month` derived from the DAG's `data_interval_start`.
+Each dbt layer runs `dbt run` followed by `dbt test`, using `reporting_year_month` from the DAG's `data_interval_start`.
 
-After starting Airflow, open `http://localhost:8085` and **unpause the DAG**. 
+After starting Airflow, open `http://localhost:8085` and **unpause the DAG**.
 
 
 ---
+
 
 ## Running the Streaming Pipeline
 
