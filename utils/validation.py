@@ -95,7 +95,9 @@ def build_validation_result(event: dict[str, Any]) -> dict[str, Any]:
     is_valid = not failed_reasons
     quarantine_reason = ", ".join(failed_reasons) if failed_reasons else None
 
-    if not is_valid:
+    if is_valid:
+        logger.info(f"Event validated successfully [event_id={event.get('event_id')}]")
+    else:
         logger.info(
             f"Event quarantined [event_id={event.get('event_id')}, reason={quarantine_reason}]"
         )

@@ -1,7 +1,7 @@
 import json
 import random
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -259,7 +259,6 @@ def generate_event(
     return {
         "event_id": str(uuid.uuid4()),
         "event_time": pickup_datetime.isoformat(),
-        "ingestion_time": datetime.now(timezone.utc).isoformat(),
         "vendor_id": vendor_id,
         "rate_code_id": rate_code_id,
         "passenger_count": passenger_count,

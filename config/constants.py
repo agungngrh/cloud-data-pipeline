@@ -6,6 +6,8 @@ RAW_DATA_DIR = BASE_DIR / "data" / "raw"
 PROFILE_DIR = BASE_DIR / "data" / "profile"
 BATCH_PROFILING = PROFILE_DIR / "profile_output.json"
 
+AVSC_PATH = BASE_DIR / "terraform" / "schemas" / "trip_event.avsc"
+
 GREEN_TAXI_DATASET_URLS: tuple[str, ...] = (
     "https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_2026-04.parquet",
     "https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_2026-05.parquet",

@@ -2,8 +2,11 @@ import argparse
 import json
 import signal
 import time
+from io import StringIO
+from pathlib import Path
 from typing import Any
-
+from config.constants import AVSC_PATH
+from fastavro import json_writer
 from google.api_core.exceptions import GoogleAPIError
 from google.cloud import pubsub_v1
 
@@ -26,39 +29,64 @@ class GracefulShutdown:
         signal.signal(signal.SIGTERM, self._handle)
 
     def _handle(self, signum: int, _frame: Any) -> None:
-        logger.info(f"Signal {signum} received. Stopping publisher loop")
+        logger.info(f"Signal {signum} received. Stopping publisher loop.")
         self.should_stop = True
 
 
+def load_pubsub_schema() -> dict[str, Any]:
+    """
+    Load the local Avro schema used by Pub/Sub
+    """
+    with AVSC_PATH.open("r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def encode_avro_json(event: dict[str, Any], schema: dict[str, Any]) -> bytes:
+    """
+    Encode an event using Avro JSON encoding
+    """
+    buffer = StringIO()
+    json_writer(buffer, schema, [event])
+    return buffer.getvalue().encode("utf-8")
+
+
 def publish_event(
-    publisher: pubsub_v1.PublisherClient, topic_path: str, event: dict[str, Any]
+    publisher: pubsub_v1.PublisherClient,
+    topic_path: str,
+    event: dict[str, Any],
+    schema: dict[str, Any],
 ) -> str:
     """
-    Publish a single event dictionary to Pub/Sub with tracking attributes
+    Publish a single Avro-encoded event to Pub/Sub
     """
-    payload = json.dumps(event, ensure_ascii=False).encode("utf-8")
+    payload = encode_avro_json(event, schema)
+
     attributes = {
         "event_id": str(event["event_id"]),
         "event_time": str(event["event_time"]),
     }
+
     future = publisher.publish(topic_path, data=payload, **attributes)
     return future.result()
 
 
 def run_publisher(rate: float, max_events: int | None = None) -> None:
     """
-    Loop and publish events at a specified rate until stopped or max events reached
+    Loop and publish events at a specified rate until stopped
+    or max events reached.
     """
     profile = load_profile()
     publisher = pubsub_v1.PublisherClient()
     topic_path = publisher.topic_path(GCP_PROJECT_ID, PUBSUB_TOPIC)
+    schema = load_pubsub_schema()
 
     shutdown = GracefulShutdown()
     interval = 1.0 / rate
     count = 0
 
     logger.info(
-        f"Starting publisher [rate={rate} msg/s, max={max_events or 'unlimited'}, topic={topic_path}]"
+        f"Starting publisher [rate={rate} msg/s, "
+        f"max={max_events or 'unlimited'}, topic={topic_path}]"
     )
 
     try:
@@ -67,16 +95,18 @@ def run_publisher(rate: float, max_events: int | None = None) -> None:
             event = generate_event(profile, START_DATE, END_DATE)
 
             try:
-                msg_id = publish_event(publisher, topic_path, event)
+                msg_id = publish_event(publisher, topic_path, event, schema)
                 count += 1
                 logger.info(
-                    f"Published message {count} | msg_id={msg_id} | event_id={event['event_id']}"
+                    f"Published message {count} | msg_id={msg_id} | "
+                    f"event_id={event['event_id']}"
                 )
+
             except GoogleAPIError as err:
                 logger.error(f"Failed to publish event {event.get('event_id')}: {err}")
 
             if max_events and count >= max_events:
-                logger.info(f"Reached target max events ({max_events}). Exiting")
+                logger.info(f"Reached target max events ({max_events}). Exiting.")
                 break
 
             elapsed = time.monotonic() - loop_start
@@ -90,13 +120,15 @@ def parse_args() -> argparse.Namespace:
     """
     Parse and validate command-line arguments for the publisher script
     """
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Google Pub/Sub Event Publisher")
     parser.add_argument("--rate", type=float, default=1.0)
     parser.add_argument("--max-events", type=int, default=None)
+
     args = parser.parse_args()
 
     if args.rate <= 0:
         parser.error("--rate must be > 0")
+
     if args.max_events is not None and args.max_events <= 0:
         parser.error("--max-events must be > 0")
 

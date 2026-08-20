@@ -1,6 +1,7 @@
 import json
 import sys
 from datetime import datetime, timezone
+from io import StringIO
 from typing import Any
 
 import apache_beam as beam
@@ -12,7 +13,9 @@ from apache_beam.options.pipeline_options import (
     StandardOptions,
 )
 from apache_beam.pvalue import TaggedOutput
+from fastavro import json_reader
 
+from config.constants import AVSC_PATH
 from config.settings import (
     BQ_TABLE_STREAM_CLEAN,
     BQ_TABLE_STREAM_QUARANTINE,
@@ -27,6 +30,14 @@ logger = get_logger(__name__)
 
 CLEAN_FIELD_NAMES = [field.name for field in SCHEMA_CLEAN_TRIPS]
 QUARANTINE_FIELD_NAMES = [field.name for field in SCHEMA_QUARANTINE_TRIPS]
+
+
+def load_pubsub_schema() -> dict[str, Any]:
+    """
+    Load the Avro schema used by Pub/Sub messages
+    """
+    with AVSC_PATH.open("r", encoding="utf-8") as file:
+        return json.load(file)
 
 
 def _build_output_row(
@@ -46,13 +57,18 @@ class ParseEventFn(beam.DoFn):
     Parse incoming JSON Pub/Sub messages and attach ingestion timestamps
     """
 
+    def setup(self) -> None:
+        self.schema = load_pubsub_schema()
+
     def process(self, element: bytes):
         try:
-            event = json.loads(element.decode("utf-8"))
+            event = next(json_reader(StringIO(element.decode("utf-8")), self.schema))
             event["ingestion_time"] = datetime.now(timezone.utc).isoformat()
             yield event
-        except (json.JSONDecodeError, UnicodeDecodeError) as err:
-            logger.error(f"Failed to parse Pub/Sub message: {err}")
+        except Exception as err:  # noqa: BLE001
+            logger.error(
+                f"Failed to parse Pub/Sub message: {type(err).__name__}: {err}"
+            )
 
 
 class ValidateAndRouteFn(beam.DoFn):
@@ -87,7 +103,7 @@ def run(argv: list[str] | None = None) -> None:
         parsed_events = (
             pipeline
             | "ReadFromPubSub" >> ReadFromPubSub(subscription=SUBSCRIPTION_PATH)
-            | "ParseJSON" >> beam.ParDo(ParseEventFn())
+            | "ParseAvroJSON" >> beam.ParDo(ParseEventFn())
         )
 
         results = parsed_events | "ValidateAndRoute" >> beam.ParDo(
