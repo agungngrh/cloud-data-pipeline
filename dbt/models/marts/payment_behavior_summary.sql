@@ -2,7 +2,7 @@
 
 with trips as (
     select *
-    from {{ ref('int_trips_enriched') }}
+    from {{ ref('unified_trips') }}
 )
 
 select

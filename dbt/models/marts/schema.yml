@@ -1,3 +1,5 @@
+version: 2
+
 models:
   - name: daily_trips_summary
     description: "Daily trip summary aggregated by pickup date."
@@ -15,12 +17,15 @@ models:
           - not_null
 
   - name: payment_behavior_summary
-    description: "Trip metrics broken down by payment type."
+    description: "Trip metrics broken down by payment type and data source."
     columns:
       - name: payment_type
         data_tests:
           - not_null
-          - unique
+
+      - name: data_source
+        data_tests:
+          - not_null
 
   - name: route_performance_summary
     description: "Route performance metrics grouped by pickup and dropoff locations."
@@ -36,25 +41,17 @@ models:
         data_tests:
           - not_null
           - unique
-
-  - name: batch_streaming_comparison
-    description: "Comparison metrics between batch and real-time streaming pipelines."
+  
+  - name: unified_trips
+    description: >
+      Combined trip records from batch and streaming pipelines, enriched with
+      pickup/dropoff zone information for cross-source analysis.
     columns:
-      - name: data_source
-        data_tests:
-          - not_null
-          - unique
+      - name: _data_source
+        description: Origin pipeline of the row (batch or streaming)
+        tests:
           - accepted_values:
               values: ['batch', 'streaming']
-      - name: trip_count
-        data_tests:
-          - not_null
-      - name: avg_trip_distance
-        data_tests:
-          - not_null
-      - name: avg_fare_amount
-        data_tests:
-          - not_null
-      - name: avg_total_amount
-        data_tests:
+      - name: pickup_datetime
+        tests:
           - not_null

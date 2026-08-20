@@ -1,7 +1,7 @@
 {{ config(materialized='table') }}
 
 with trips as (
-    select * from {{ ref('int_trips_enriched') }}
+    select * from {{ ref('unified_trips') }}
 ),
 
 pickup_summary as (
