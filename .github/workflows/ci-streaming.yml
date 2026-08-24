@@ -13,6 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}
+      GCP_PROJECT_ID: jcdeah-009
+      GCP_REGION: asia-southeast2
+      STUDENT_ID: agungnugraha
+      GCS_BUCKET: jcdeah-009-cp3-agungnugraha
+      GCS_RAW_PATH: gs://jcdeah-009-cp3-agungnugraha/raw
+      GCS_STAGING_LOCATION: gs://jcdeah-009-cp3-agungnugraha/staging
+      GCS_TEMP_LOCATION: gs://jcdeah-009-cp3-agungnugraha/temp
+      BQ_DATASET_RAW: cp3_agungnugraha_raw
+      BQ_DATASET_STAGING: cp3_agungnugraha_staging
+      BQ_DATASET_INTERMEDIATE: cp3_agungnugraha_intermediate
+      BQ_DATASET_MARTS: cp3_agungnugraha_marts
+      BQ_DATASET_OPS: cp3_agungnugraha_ops
+      PUBSUB_TOPIC: cp3-agungnugraha-trip-events
+      PUBSUB_SUBSCRIPTION: cp3-agungnugraha-trip-events-sub
+      DATAFLOW_STREAM_JOB_PREFIX: agungnugraha-stream
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -25,7 +40,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r src/streaming/requirements.txt
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov python-dotenv
 
       - name: Run unit tests
         run: pytest tests/unit -v

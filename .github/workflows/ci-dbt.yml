@@ -17,6 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GCP_PROJECT_ID: jcdeah-009
+      BQ_DATASET_RAW: cp3_agungnugraha_raw
+      BQ_DATASET_STAGING: cp3_agungnugraha_staging
+      BQ_DATASET_INTERMEDIATE: cp3_agungnugraha_intermediate
+      BQ_DATASET_MARTS: cp3_agungnugraha_marts
+      BQ_DATASET_CI: cp3_agungnugraha_ci
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -30,21 +35,17 @@ jobs:
         run: pip install -r ../requirements.txt
 
       - name: Authenticate to GCP
-        id: auth
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
           create_credentials_file: true
-      
-      - name: Place credentials at expected path
-        run: cp "${{ steps.auth.outputs.credentials_file_path }}" ../secrets/jcdeah-009-a939f492bee7.json
 
       - name: dbt debug
-        run: dbt debug
+        run: dbt debug --target ci
 
       - name: dbt compile
-        run: dbt compile
+        run: dbt compile --target ci
 
       - name: dbt test
         if: github.event_name == 'pull_request'
-        run: dbt test
+        run: dbt test --target ci
