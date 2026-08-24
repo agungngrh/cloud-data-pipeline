@@ -1,5 +1,5 @@
 models:
-  - name: stg_taxi_trip
+  - name: stg_batch_trips
     description: "Cleaned and standardized NYC Green Taxi for April and May."
 
     columns:

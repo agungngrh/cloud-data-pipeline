@@ -1,3 +1,4 @@
+# File: dags/batch_trip_pipeline.py
 from datetime import datetime, timedelta
 
 from airflow import DAG
@@ -11,8 +12,12 @@ from airflow.providers.google.cloud.transfers.gcs_to_bigquery import (
 )
 from airflow.utils.task_group import TaskGroup
 
-from config.constants import DBT_PROJECT_DIR
-from config.settings import BQ_TABLE_TRIP_RAW, GCS_BUCKET
+from src.config.constants import DBT_PROJECT_DIR
+from src.config.settings import BQ_TABLE_TRIP_RAW, GCS_BUCKET
+from src.observability.airflow_ops_logger import (
+    task_failure_callback,
+    task_success_callback,
+)
 
 DEFAULT_ARGS = {
     "owner": "agung_nugraha",
@@ -20,13 +25,13 @@ DEFAULT_ARGS = {
     "retries": 2,
     "retry_delay": timedelta(minutes=3),
     "execution_timeout": timedelta(minutes=30),
+    "on_success_callback": task_success_callback,
+    "on_failure_callback": task_failure_callback,
 }
 
 
-def create_dbt_layer(layer_name: str, dbt_command: str, dbt_vars: str) -> TaskGroup:
-    """
-    Create a standardized dbt run and test TaskGroup
-    """
+def create_dbt_layer(layer_name: str, dbt_vars: str) -> TaskGroup:
+    """Create a standardized dbt run and test TaskGroup."""
     with TaskGroup(
         group_id=f"{layer_name}_layer",
         tooltip=f"Run and test {layer_name} dbt models",
@@ -61,7 +66,7 @@ with DAG(
     catchup=True,
     max_active_runs=1,
     default_args=DEFAULT_ARGS,
-    tags=["gcs", "bigquery", "dbt"],
+    tags=["gcs", "bigquery", "dbt", "ops"],
 ) as dag:
 
     dbt_vars = (
@@ -127,8 +132,8 @@ with DAG(
                 "query": {
                     "query": f"""
                         DELETE FROM `{BQ_TABLE_TRIP_RAW}`
-                        WHERE lpep_pickup_datetime >= TIMESTAMP('{{{{ data_interval_start }}}}')
-                          AND lpep_pickup_datetime < TIMESTAMP('{{{{ data_interval_end }}}}')
+                        WHERE lpep_pickup_datetime >= TIMESTAMP('{{ data_interval_start }}')
+                          AND lpep_pickup_datetime < TIMESTAMP('{{ data_interval_end }}')
                     """,
                     "useLegacySql": False,
                 }
@@ -156,14 +161,8 @@ with DAG(
             >> load_trip_data_raw
         )
 
-    staging = create_dbt_layer(
-        layer_name="staging", dbt_command="run", dbt_vars=dbt_vars
-    )
-
-    intermediate = create_dbt_layer(
-        layer_name="intermediate", dbt_command="run", dbt_vars=dbt_vars
-    )
-
-    marts = create_dbt_layer(layer_name="marts", dbt_command="run", dbt_vars=dbt_vars)
+    staging = create_dbt_layer(layer_name="staging", dbt_vars=dbt_vars)
+    intermediate = create_dbt_layer(layer_name="intermediate", dbt_vars=dbt_vars)
+    marts = create_dbt_layer(layer_name="marts", dbt_vars=dbt_vars)
 
     ingestion >> staging >> intermediate >> marts

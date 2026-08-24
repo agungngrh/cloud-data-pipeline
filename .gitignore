@@ -245,9 +245,6 @@ airflow/logs/
 # macOS
 .DS_Store
 
-# dbt
-dbt/profiles.yml
-
 # Byte-compiled / Python Cache
 __pycache__/
 *.py[cod]
@@ -320,3 +317,15 @@ data/profile/*.json
 .DS_Store
 .vscode/
 .idea/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
+
+*.json
+!infra/terraform/schemas/*.json
+
+*.csv
+!dbt/seeds/*.csv

@@ -1,5 +1,51 @@
+version: 2
+
 models:
-  - name: daily_trips_summary
+  # ---------------- CORE MODELS ----------------
+  - name: dim_taxi_zones
+    description: "Dimension table containing taxi zone names and boroughs."
+    columns:
+      - name: location_id
+        data_tests:
+          - not_null
+          - unique
+
+  - name: fct_trips
+    description: "Core fact table combining clean batch and streaming trips, enriched with time dimensions and taxi zone details."
+    columns:
+      - name: trip_id
+        description: "Primary key for the trip."
+        data_tests:
+          - not_null
+          - unique
+
+      - name: pu_location_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_taxi_zones')
+              field: location_id
+
+      - name: do_location_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_taxi_zones')
+              field: location_id
+              
+      - name: pickup_datetime
+        data_tests:
+          - not_null
+          
+      - name: _data_source
+        description: "Origin pipeline of the row (batch or streaming)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['batch', 'streaming']
+
+  # ---------------- AGGREGATE MODELS ----------------
+  - name: agg_trips_summary
     description: "Daily trip summary aggregated by pickup date."
     columns:
       - name: pickup_date
@@ -7,54 +53,35 @@ models:
           - not_null
           - unique
 
-  - name: hourly_demand_summary
+  - name: agg_hourly_metrics
     description: "Hourly trip demand patterns by pickup date and hour."
     columns:
       - name: pickup_date
         data_tests:
           - not_null
 
-  - name: payment_behavior_summary
-    description: "Trip metrics broken down by payment type."
+  - name: agg_payment_metrics
+    description: "Trip metrics broken down by payment type and data source."
     columns:
-      - name: payment_type
+      - name: payment_label
         data_tests:
           - not_null
-          - unique
 
-  - name: route_performance_summary
+      - name: data_source # Dihilangkan garis bawahnya sesuai error SQL
+        data_tests:
+          - not_null
+
+  - name: agg_route_performance
     description: "Route performance metrics grouped by pickup and dropoff locations."
     columns:
-      - name: pickup_location_id
+      - name: pickup_location_id # Diubah dari pu_location_id sesuai error SQL
         data_tests:
           - not_null
 
-  - name: zone_performance_summary
+  - name: agg_zone_performance
     description: "Location zone performance metrics grouped by location ID."
     columns:
       - name: location_id
         data_tests:
           - not_null
           - unique
-
-  - name: batch_streaming_comparison
-    description: "Comparison metrics between batch and real-time streaming pipelines."
-    columns:
-      - name: data_source
-        data_tests:
-          - not_null
-          - unique
-          - accepted_values:
-              values: ['batch', 'streaming']
-      - name: trip_count
-        data_tests:
-          - not_null
-      - name: avg_trip_distance
-        data_tests:
-          - not_null
-      - name: avg_fare_amount
-        data_tests:
-          - not_null
-      - name: avg_total_amount
-        data_tests:
-          - not_null

@@ -8,40 +8,9 @@ The platform covers the full data lifecycle, from raw ingestion, cleaning, and v
 ---
 
 
-## Table of Contents
+## Architecture
 
-1. [System Architecture](#system-architecture)
-2. [Data Source Information](#data-source-information)
-3. [Technology Stack](#technology-stack)
-4. [Project Structure](#project-structure)
-5. [Assumptions](#assumptions)
-6. [Setup & Configuration](#setup--configuration)
-7. [Running the Batch Pipeline](#running-the-batch-pipeline)
-8. [Running the Streaming Pipeline](#running-the-streaming-pipeline)
-9. [Data Model](#data-model)
-10. [Data Quality Validation](#data-quality-validation)
-11. [Idempotency Strategy](#idempotency-strategy)
-12. [Partitioning & Clustering](#partitioning--clustering)
-13. [Analytical Queries](#analytical-queries)
-14. [Proof of Execution](#proof-of-execution)
-15. [Future Development](#future-development)
-
-
----
-
-## System Architecture
-
-![System Architecture](docs/images/architecture.png)
-
-The pipeline has two independent data flows that converge at the BigQuery warehouse:
-
-### Batch
-
-GCS (raw Parquet) → Airflow (`GCSToBigQueryOperator`) → BigQuery `raw` → dbt (`staging` → `intermediate` → `marts`)
-
-### Streaming
-
-Event generator → Pub/Sub → Apache Beam (validation + transform) → BigQuery `intermediate` (clean/quarantine)
+![Architecture](docs/images/architecture.png)
 
 
 ---
@@ -65,16 +34,17 @@ Event generator → Pub/Sub → Apache Beam (validation + transform) → BigQuer
 
 ## Technology Stack
 
-| Category             | Technology                 |
-| -------------------- | -------------------------- |
-| Programming Language | Python 3.11                |
-| Data Orchestration   | Apache Airflow 2.10.5      |
-| Data Transformation  | dbt                        |
-| Data Warehouse       | Google BigQuery            |
-| Cloud Storage        | Google Cloud Storage       |
-| Message Broker       | Google Cloud Pub/Sub       |
-| Streaming Processing | Apache Beam                |
-| Containerization     | Docker & Docker Compose    |
+| Category                | Technology                 |
+| ------------------------| -------------------------- |
+| Programming Language    | Python 3.11                |
+| Data Orchestration      | Apache Airflow 2.10.5      |
+| Data Transformation     | dbt                        |
+| Data Warehouse          | Google BigQuery            |
+| Cloud Storage           | Google Cloud Storage       |
+| Message Broker          | Google Cloud Pub/Sub       |
+| Streaming Processing    | Apache Beam                |
+| Containerization        | Docker & Docker Compose    |
+| Infrastructure as Code  | Terraform                  |
 
 
 ---
@@ -91,6 +61,7 @@ cloud-data-pipeline/
 ├── notebook/              # EDA notebooks
 ├── scripts/               # Batch and streaming scripts
 ├── utils/                 # Shared utilities
+├── terraform/             # Infrastructure as Code                 
 ├── .env.example
 ├── .gitignore
 ├── docker-compose.yml
@@ -152,16 +123,26 @@ cloud-data-pipeline/
    gcloud auth application-default login
 ```
 
-5. **Provision your GCP infrastructure**
+5. **Provision the GCP infrastructure with Terraform**
+
+   Terraform manages the GCP infrastructure required by the pipeline, including the GCS bucket, BigQuery datasets and streaming tables, Pub/Sub schema, topic, and subscription.
 ```bash
-   python3 -m scripts.batch.create_bucket
-   python3 -m scripts.batch.download_upload_raw
-   python3 -m scripts.streaming.setup_bigquery
-   gcloud pubsub topics create <your-topic-name>
-   gcloud pubsub subscriptions create <your-subscription-name> --topic=<your-topic-name>
+   cd terraform
+   terraform init
+   terraform plan
+   terraform apply
+   cd ..
 ```
 
-6. **Set up the dbt profile**
+6. **Ingest the raw datasets**
+
+   The raw ingestion script downloads each configured dataset to the local data/raw/ directory first. The local file is then uploaded to the raw/ prefix in the Terraform-managed GCS bucket.
+```bash
+   python3 -m scripts.batch.download_upload_raw
+```
+   The process is idempotent: existing local files are reused, and files that already exist in GCS are not uploaded again.
+
+7. **Set up the dbt profile**
 
    The dbt profile is not committed to the repository because it contains environment-specific configuration. Copy the provided template to the default dbt configuration directory:
 ```bash
@@ -181,7 +162,7 @@ cloud-data-pipeline/
    cd ..
 ```
 
-7. **Set up the dbt seed**
+8. **Set up the dbt seed**
 
    The `taxi_zone_lookup.csv` file is a static reference dataset managed by dbt as a seed. Copy it from GCS into the dbt seeds directory:
 ```bash
@@ -195,7 +176,7 @@ cloud-data-pipeline/
 ```
    The seed is loaded once during the initial setup and is not reloaded by the monthly Airflow batch pipeline.
 
-8. **Start Airflow locally**
+9. **Start Airflow locally**
 ```bash
    docker compose up -d airflow-init
    docker compose up -d
@@ -259,7 +240,7 @@ This mode uses `DirectRunner` by default to process events directly in the local
 To ensure streaming pipeline SLA compliance, dbt monitors real-time ingestion latency on `stream_trips_clean`:
 
 ```bash
-dbt source freshness --select source:stream_trips_clean
+dbt source freshness --select source:streaming
 ```
 
 Failures usually mean upstream Pub/Sub or streaming worker issues, letting us catch delays before they hit downstream consumers.
@@ -279,7 +260,7 @@ The data warehouse follows a layered structure for both batch and streaming data
 | Raw | `raw_taxi_trip`, `taxi_zone_lookup` | Stores source data as ingested from the source files. |
 | Staging | `stg_taxi_trip`, `stg_taxi_zone` | Standardizes the raw trip data. |
 | Intermediate | `int_trips_flagged`, `int_trips_clean`, `int_trips_enriched`, `int_quarantine_trips`, `dq_check_result` | Applies validation, transformation, join, and quarantine handling. |
-| Marts | `daily_trips`, `hourly_demand`, `payment_behavior`, `route`, `zone_performance_summary`, `batch_streaming_comparison` | Provides aggregated datasets for analytical use. |
+| Marts | `unified_trips`, `daily_trips`, `hourly_demand`, `payment_behavior`, `route`, `zone_performance_summary` | Provides aggregated datasets for analytical use. |
 
 ### Streaming
 
@@ -322,15 +303,15 @@ The batch pipeline records validation results in `dq_check_result`, including th
 
 ### Batch
 
-- Pipeline execution is parameterized using `reporting_year_month`.
-- Existing records for the processing period are removed before new data is loaded to support idempotent reprocessing.
-- Incremental models use a merge strategy with defined unique keys to prevent duplicates and update existing records when the same period is reprocessed, while mart models are rebuilt on each run to ensure the latest results.
+- Pipeline execution is parameterized using `reporting_year_month` to define the processing period.
+- Existing records for the processing period are removed before new data is loaded, allowing the same reporting period to be safely reprocessed.
+- dbt incremental models use a `merge` strategy with defined unique keys to update existing records and prevent duplicate records when the same records are processed again.
+- Mart models are rebuilt on each run to ensure that downstream results reflect the latest processed data.
 
 ### Streaming
 
-* Every event contains a unique `event_id` for event identification.
-* Invalid events are routed to the quarantine table with their validation failure reasons.
-* Valid events are processed and written to the curated streaming layer.
+- Every event is assigned a unique `event_id` to provide event-level identification and traceability.
+- The current streaming pipeline does not perform deduplication based on `event_id`; duplicate delivery of the same event can therefore result in duplicate rows.
 
 
 ---
@@ -345,24 +326,6 @@ The `raw_taxi_trip` table is partitioned by `lpep_pickup_datetime` on a monthly 
 ### Streaming
 
 The `stream_trips_clean` and `stream_trips_quarantine` tables are partitioned by `event_time` on a daily basis. No clustering is used because the streaming data is relatively small and is mainly queried by event time. Daily partitioning helps reduce the amount of data scanned when querying a specific time period.                                         |
-
-
----
-
-
-## Analytical Queries
-
-### 1. Batch Analysis
-
-The batch marts are used to analyze historical trip patterns, including daily and hourly demand, payment behavior, route performance, and zone performance.
-
-### 2. Batch vs. Streaming Comparison
-
-The `batch_streaming_comparison.sql` query compares batch and streaming data using trip count, average trip distance, average fare amount, and average total amount. This helps check whether the generated streaming data follows the patterns found in the batch data.
-
-### 3. Data Quality Analysis
-
-Data quality queries are used to review validation results and quarantined records. They show rule failure rates and the main reasons why streaming events were rejected.
 
 
 ---
