@@ -8,8 +8,7 @@ dbt-bigquery>=1.8.0,<1.9.0
 pandas>=2.1.0
 pyarrow>=14.0.0
 numpy>=1.26.0
-apache-beam[gcp]>=2.60.0
-sqlalchemy<2.0.0,>=1.4.36
+apache-beam[gcp]>=2.59.0
 pytest
 pytest-cov
 ruff
