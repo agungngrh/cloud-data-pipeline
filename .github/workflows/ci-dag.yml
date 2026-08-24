@@ -3,10 +3,10 @@ name: CI - Airflow DAG
 on:
   push:
     branches: [dev]
-    paths: ["airflow/dags/**", "tests/dags/**"]
+    paths: ["airflow/dags/**", "tests/dags/**", "src/**"]
   pull_request:
     branches: [main]
-    paths: ["airflow/dags/**", "tests/dags/**"]
+    paths: ["airflow/dags/**", "tests/dags/**", "src/**"]
 
 jobs:
   dag-tests:
@@ -16,12 +16,32 @@ jobs:
       options: --user 0
     env:
       PYTHONPATH: ${{ github.workspace }}
+      GCP_PROJECT_ID: jcdeah-009
+      GCP_REGION: asia-southeast2
+      STUDENT_ID: agungnugraha
+      GCS_BUCKET: jcdeah-009-cp3-agungnugraha
+      GCS_RAW_PATH: gs://jcdeah-009-cp3-agungnugraha/raw
+      GCS_STAGING_LOCATION: gs://jcdeah-009-cp3-agungnugraha/staging
+      GCS_TEMP_LOCATION: gs://jcdeah-009-cp3-agungnugraha/temp
+      BQ_DATASET_RAW: cp3_agungnugraha_raw
+      BQ_DATASET_STAGING: cp3_agungnugraha_staging
+      BQ_DATASET_INTERMEDIATE: cp3_agungnugraha_intermediate
+      BQ_DATASET_MARTS: cp3_agungnugraha_marts
+      BQ_DATASET_OPS: cp3_agungnugraha_ops
+      PUBSUB_TOPIC: cp3-agungnugraha-trip-events
+      PUBSUB_SUBSCRIPTION: cp3-agungnugraha-trip-events-sub
+      DATAFLOW_STREAM_JOB_PREFIX: agungnugraha-stream
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: su airflow -c "pip install --no-cache-dir -r requirements.txt"
-        
+      - name: Install minimal dependencies
+        run: su airflow -c "pip install --no-cache-dir 'python-dotenv>=1.0.1'"
+
+      - name: Mirror DAG folder to production-like path
+        run: |
+          mkdir -p /opt/airflow/dags
+          cp -r airflow/dags/* /opt/airflow/dags/
+
       - name: Run DAG tests
         run: pytest tests/dags -v
