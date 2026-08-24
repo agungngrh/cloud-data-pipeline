@@ -32,7 +32,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r ../requirements.txt
+        run: pip install -r ../requirements-dbt.txt
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
