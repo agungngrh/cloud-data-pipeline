@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: terraform-state
+  cancel-in-progress: false
+
 defaults:
   run:
     working-directory: ./infra/terraform
@@ -25,7 +29,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.15.9"   
+          terraform_version: "1.15.9"
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
