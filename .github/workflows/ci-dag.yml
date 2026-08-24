@@ -37,11 +37,14 @@ jobs:
 
       - name: Install minimal dependencies
         run: su airflow -c "pip install --no-cache-dir 'python-dotenv>=1.0.1' pytest pytest-cov"
-        
+
       - name: Mirror DAG folder to production-like path
         run: |
           mkdir -p /opt/airflow/dags
           cp -r airflow/dags/* /opt/airflow/dags/
+
+      - name: Initialize Airflow metadata DB
+        run: airflow db migrate
 
       - name: Run DAG tests
         run: pytest tests/dags -v
