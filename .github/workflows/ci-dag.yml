@@ -36,8 +36,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install minimal dependencies
-        run: su airflow -c "pip install --no-cache-dir 'python-dotenv>=1.0.1'"
-
+        run: su airflow -c "pip install --no-cache-dir 'python-dotenv>=1.0.1' pytest pytest-cov"
+        
       - name: Mirror DAG folder to production-like path
         run: |
           mkdir -p /opt/airflow/dags
