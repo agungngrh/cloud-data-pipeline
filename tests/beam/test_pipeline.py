@@ -65,8 +65,8 @@ def test_build_output_row():
 # --- 2. UNIT TEST FOR PARSE EVENT FN ---
 
 
-@patch("scripts.streaming.pipeline.load_pubsub_schema")
-@patch("scripts.streaming.pipeline.json_reader")
+@patch("src.streaming.pipeline.load_pubsub_schema")
+@patch("src.streaming.pipeline.json_reader")
 def test_parse_event_fn_success(mock_reader, mock_load_schema, mock_avro_schema):
     mock_load_schema.return_value = mock_avro_schema
     mock_reader.return_value = iter([{"event_id": "evt-001"}])
@@ -81,8 +81,8 @@ def test_parse_event_fn_success(mock_reader, mock_load_schema, mock_avro_schema)
     assert "ingestion_time" in results[0]
 
 
-@patch("scripts.streaming.pipeline.load_pubsub_schema")
-@patch("scripts.streaming.pipeline.json_reader")
+@patch("src.streaming.pipeline.load_pubsub_schema")
+@patch("src.streaming.pipeline.json_reader")
 def test_parse_event_fn_error_handling(mock_reader, mock_load_schema, mock_avro_schema):
     mock_load_schema.return_value = mock_avro_schema
     mock_reader.side_effect = Exception("Corrupted Avro Data")
@@ -98,8 +98,8 @@ def test_parse_event_fn_error_handling(mock_reader, mock_load_schema, mock_avro_
 # --- 3. PIPELINE INTEGRATION TEST (VALIDATION & ROUTING) ---
 
 
-@patch("scripts.streaming.pipeline.build_validation_result")
-@patch("scripts.streaming.pipeline.build_transformation_result")
+@patch("src.streaming.pipeline.build_validation_result")
+@patch("src.streaming.pipeline.build_transformation_result")
 def test_validate_and_route_fn_clean_routing(
     mock_transform, mock_validate, sample_event
 ):
@@ -124,7 +124,7 @@ def test_validate_and_route_fn_clean_routing(
         assert_that(results.quarantine, equal_to([]), label="CheckQuarantineEmpty")
 
 
-@patch("scripts.streaming.pipeline.build_validation_result")
+@patch("src.streaming.pipeline.build_validation_result")
 def test_validate_and_route_fn_quarantine_routing(mock_validate, sample_event):
     # Mocking event invalid
     mock_validate.return_value = {

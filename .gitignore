@@ -326,3 +326,6 @@ terraform.tfvars
 
 *.json
 !infra/terraform/schemas/*.json
+
+*.csv
+!dbt/seeds/*.csv
