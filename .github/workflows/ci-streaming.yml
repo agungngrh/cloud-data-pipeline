@@ -11,6 +11,8 @@ on:
 jobs:
   streaming-tests:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4

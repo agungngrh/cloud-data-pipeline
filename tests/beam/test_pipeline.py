@@ -1,8 +1,9 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
 import apache_beam as beam
+import pytest
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that, equal_to
-import pytest
 
 from src.streaming.pipeline import (
     ParseEventFn,

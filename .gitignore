@@ -323,3 +323,6 @@ data/profile/*.json
 *.tfstate.*
 .terraform/
 terraform.tfvars
+
+*.json
+!infra/terraform/schemas/*.json

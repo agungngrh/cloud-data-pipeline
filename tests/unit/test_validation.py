@@ -3,10 +3,10 @@ from unittest.mock import patch
 import pytest
 
 # Mocking constants sebelum mengimpor fungsi validasi
-with patch("config.constants.REQUIRED_FIELDS", ["event_id", "vendor_id"]), patch(
-    "config.constants.INVALID_LOCATION_IDS", {264, 265}
+with patch("src.config.constants.REQUIRED_FIELDS", ["event_id", "vendor_id"]), patch(
+    "src.config.constants.INVALID_LOCATION_IDS", {264, 265}
 ), patch(
-    "config.constants.AMOUNT_COMPONENT_FIELDS",
+    "src.config.constants.AMOUNT_COMPONENT_FIELDS",
     ["fare_amount", "extra", "mta_tax", "tip_amount", "tolls_amount"],
 ):
     from src.core.validation import (
