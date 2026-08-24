@@ -9,7 +9,7 @@ with patch("config.constants.REQUIRED_FIELDS", ["event_id", "vendor_id"]), patch
     "config.constants.AMOUNT_COMPONENT_FIELDS",
     ["fare_amount", "extra", "mta_tax", "tip_amount", "tolls_amount"],
 ):
-    from utils.validation import (
+    from src.core.validation import (
         build_validation_result,
         is_amount_mismatch,
         is_complete_record,

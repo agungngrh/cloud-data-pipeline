@@ -245,9 +245,6 @@ airflow/logs/
 # macOS
 .DS_Store
 
-# dbt
-dbt/profiles.yml
-
 # Byte-compiled / Python Cache
 __pycache__/
 *.py[cod]

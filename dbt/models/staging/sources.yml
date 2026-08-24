@@ -1,6 +1,19 @@
+version: 2
+
 sources:
   - name: raw
     database: "{{ env_var('GCP_PROJECT_ID') }}"
-    schema: "{{ env_var('BQ_DATASET_RAW') }}"
+    schema: "{{ env_var('BQ_DATASET_RAW') }}" 
     tables:
       - name: raw_taxi_trip
+
+  - name: streaming
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: "{{ env_var('BQ_DATASET_INTERMEDIATE') }}"
+    tables:
+      - name: int_stream_trips_clean
+        loaded_at_field: ingestion_time
+        freshness:
+          warn_after: {count: 15, period: minute}
+          error_after: {count: 60, period: minute}
+      - name: int_stream_trips_quarantine

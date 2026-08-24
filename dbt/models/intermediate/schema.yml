@@ -1,6 +1,8 @@
+version: 2
+
 models:
-  - name: int_trips_flagged
-    description: "Flags valid and invalid trip records based on quality rules."
+  - name: int_batch_trips_flagged
+    description: "Ephemeral model that computes data quality flags and metrics for raw batch trips."
     columns:
       - name: vendor_id
         data_tests:
@@ -15,54 +17,47 @@ models:
       - name: trip_type
         data_tests:
           - accepted_values:
-                values: [1, 2]
-                quote: false 
+              values: [1, 2]
+              quote: false 
 
-  - name: int_trips_clean
-    description: "Clean trip records that passed all quality checks."
-    columns:
-      - name: trip_id
-        data_tests:
-          - not_null
-          - unique
-
-  - name: int_quarantine_trips
-    description: "Invalid trip records isolated for audit."
+  - name: int_batch_trips_quarantine
+    description: "Isolates invalid batch trip records that failed data quality checks."
     columns:
       - name: quarantine_reason
+        description: "Comma-separated list of failed validation rules."
         data_tests:
           - not_null
 
-  - name: dq_check_result
-    description: "Summary of failed record counts per quality rule."
-    columns:
-      - name: rule_name
-        data_tests:
-          - not_null
-
-  - name: int_trips_enriched
-    description: "Clean trip data enriched with taxi zone lookup."
+  - name: int_batch_trips_clean
+    description: "Valid batch trip records that passed all data quality checks."
     columns:
       - name: trip_id
         description: "Surrogate key generated via FARM_FINGERPRINT."
         data_tests:
           - not_null
           - unique
-
       - name: vendor_id
+        data_tests:
+          - not_null
+
+  - name: int_unified_trips_clean
+    description: "Consolidated view of clean trip records from both batch and streaming pipelines."
+    columns:
+      - name: trip_id
         data_tests:
           - not_null
 
       - name: pu_location_id
         data_tests:
           - not_null
-          - relationships:
-                to: ref('stg_taxi_zone')
-                field: location_id
-
+          
       - name: do_location_id
         data_tests:
           - not_null
-          - relationships:
-                to: ref('stg_taxi_zone')
-                field: location_id
+
+      - name: _data_source
+        description: "Indicates the ingestion pipeline source ('batch' or 'streaming')."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['batch', 'streaming']

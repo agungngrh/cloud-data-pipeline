@@ -1,0 +1,26 @@
+name: CI - Airflow DAG
+
+on:
+  push:
+    branches: [dev]
+    paths: ["airflow/dags/**", "tests/dags/**"]
+  pull_request:
+    branches: [main]
+    paths: ["airflow/dags/**", "tests/dags/**"]
+
+jobs:
+  dag-tests:
+    runs-on: ubuntu-latest
+    container:
+      image: apache/airflow:2.10.5-python3.11
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: pip install --no-cache-dir -r requirements.txt
+
+      - name: Run DAG tests
+        run: pytest tests/dags -v
