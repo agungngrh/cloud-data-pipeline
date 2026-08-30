@@ -1,7 +1,6 @@
 version: 2
 
 models:
-  # ---------------- CORE MODELS ----------------
   - name: dim_taxi_zones
     description: "Dimension table containing taxi zone names and boroughs."
     columns:
@@ -44,7 +43,6 @@ models:
           - accepted_values:
               values: ['batch', 'streaming']
 
-  # ---------------- AGGREGATE MODELS ----------------
   - name: agg_trips_summary
     description: "Daily trip summary aggregated by pickup date."
     columns:
@@ -67,14 +65,13 @@ models:
         data_tests:
           - not_null
 
-      - name: data_source # Dihilangkan garis bawahnya sesuai error SQL
-        data_tests:
+      - name: data_source
           - not_null
 
   - name: agg_route_performance
     description: "Route performance metrics grouped by pickup and dropoff locations."
     columns:
-      - name: pickup_location_id # Diubah dari pu_location_id sesuai error SQL
+      - name: pickup_location_id
         data_tests:
           - not_null
 
