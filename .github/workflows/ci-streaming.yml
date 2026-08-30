@@ -40,7 +40,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r src/streaming/requirements.txt
-          pip install pytest pytest-cov python-dotenv
+          pip install -r requirements-test.txt
 
       - name: Run unit tests
         run: pytest tests/unit -v
