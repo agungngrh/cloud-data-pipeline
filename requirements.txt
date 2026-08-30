@@ -1,17 +1,9 @@
+-r requirements-dbt.txt
 python-dotenv>=1.0.1
 requests>=2.31.0
 google-cloud-storage>=2.18.0
 google-cloud-bigquery>=3.20.0
-google-cloud-pubsub>=2.20.0
-dbt-core==1.8.9
-dbt-bigquery==1.8.3
 pandas>=2.1.0
 pyarrow>=14.0.0
 numpy>=1.26.0
-apache-beam[gcp]==2.59.0
-sqlalchemy<2.0.0,>=1.4.36
-protobuf>=5.26.1,<6.0.0
-pytest
-pytest-cov
-ruff
-apache-beam[test]
+pydantic-settings>=2.5.0
