@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from src.config.constants import (
-    BATCH_PROFILING,
+    BATCH_PROFILING_OUTPUTH_PATH,
     MAX_DISTANCE_POOL_SIZE,
     PROFILED_COLUMNS,
     RANDOM_SEED,
@@ -17,7 +17,7 @@ from src.config.constants import (
 
 def load_dataset(raw_dir: Path) -> pd.DataFrame:
     """
-    Load and concatenate Parquet files from the raw data directory
+    Load and concatenate all Parquet files from the raw data directory
     """
     raw_files = list(raw_dir.glob("*.parquet"))
 
@@ -29,7 +29,7 @@ def load_dataset(raw_dir: Path) -> pd.DataFrame:
 
 def analyze_hour_distribution(df: pd.DataFrame) -> dict[str, float]:
     """
-    Calculate pickup-hour probabilities from batch data
+    Return the probability distribution of pickup hours
     """
     pickup_datetime = pd.to_datetime(df["lpep_pickup_datetime"], errors="coerce")
     hour_counts = pickup_datetime.dt.hour.value_counts(normalize=True).sort_index()
@@ -41,7 +41,10 @@ def build_reference_values(
     df: pd.DataFrame, column: str, max_size: int, seed: int
 ) -> list[float]:
     """
-    Build a reference sample of numeric values
+    Build a bounded random reference sample from a numeric column.
+
+    Sampling is performed without replacement when the number of
+    available values exceeds max_size
     """
     values = df[column].dropna().to_numpy()
     rng = np.random.default_rng(seed)
@@ -54,7 +57,7 @@ def build_reference_values(
 
 def analyze_fare_per_mile(df: pd.DataFrame) -> dict[str, float]:
     """
-    Calculate fare-per-mile percentiles from valid trips
+    Return p10, median, and p90 fare-per-mile for valid trips
     """
     valid_mask = (df["trip_distance"] > 0) & (df["fare_amount"] > 0)
 
@@ -72,7 +75,7 @@ def analyze_fare_per_mile(df: pd.DataFrame) -> dict[str, float]:
 
 def analyze_tip_per_fare(df: pd.DataFrame) -> dict[str, float]:
     """
-    Calculate tip-to-fare ratio percentiles from valid trips
+    Return p10, median, and p90 tip-to-fare ratios for valid trips
     """
     valid_mask = (df["fare_amount"] > 0) & (df["tip_amount"] > 0)
 
@@ -88,7 +91,7 @@ def analyze_tip_per_fare(df: pd.DataFrame) -> dict[str, float]:
 
 def analyze_speed_distribution(df: pd.DataFrame) -> dict[str, float]:
     """
-    Calculate trip-speed percentiles from valid trips
+    Return p10, median, and p90 trip speeds for valid trips
     """
     pickup_datetime = pd.to_datetime(df["lpep_pickup_datetime"], errors="coerce")
     dropoff_datetime = pd.to_datetime(df["lpep_dropoff_datetime"], errors="coerce")
@@ -112,7 +115,9 @@ def analyze_profiled_columns(
     df: pd.DataFrame, columns: list[str]
 ) -> dict[str, dict[str, float]]:
     """
-    Calculate probabilities for categorical and discrete values
+    Return normalized value distributions for the specified columns.
+
+    Missing values are represented by the string ``"null"``
     """
     profile: dict[str, dict[str, float]] = {}
 
@@ -136,7 +141,7 @@ def analyze_profiled_columns(
 
 def save_profile(profile: dict[str, Any], output_path: Path | str) -> None:
     """
-    Save the generated profile as a JSON file
+    Serialize the generated profile to a JSON file
     """
     target_path = Path(output_path)
     target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -147,7 +152,10 @@ def save_profile(profile: dict[str, Any], output_path: Path | str) -> None:
 
 def build_profile() -> dict[str, Any]:
     """
-    Build the reference profile used by the event generator
+    Build and persist the reference profile used by the event generator.
+
+    The profile is derived from the raw dataset and saved to the
+    configured profiling output path
     """
     df_raw = load_dataset(RAW_DATA_DIR)
 
@@ -168,7 +176,7 @@ def build_profile() -> dict[str, Any]:
         ),
     }
 
-    save_profile(profile, BATCH_PROFILING)
+    save_profile(profile, BATCH_PROFILING_OUTPUTH_PATH)
 
     return profile
 
