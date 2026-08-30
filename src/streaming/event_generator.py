@@ -6,13 +6,13 @@ from pathlib import Path
 from typing import Any
 
 from src.config.constants import (
-    BATCH_PROFILING,
+    BATCH_PROFILING_OUTPUTH_PATH,
     END_DATE,
     START_DATE,
 )
 
 
-def load_profile(path: str | Path = BATCH_PROFILING) -> dict[str, Any]:
+def load_profile(path: str | Path = BATCH_PROFILING_OUTPUTH_PATH) -> dict[str, Any]:
     """
     Load the streaming data profile from a JSON file
     """

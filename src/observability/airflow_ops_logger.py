@@ -1,15 +1,10 @@
 from datetime import datetime, timezone
+from typing import Any
 
 from google.cloud import bigquery
 from google.cloud.exceptions import GoogleCloudError
 
-from src.config.settings import (
-    BQ_DATASET_INTERMEDIATE,
-    BQ_DATASET_MARTS,
-    BQ_DATASET_STAGING,
-    BQ_TABLE_TRIP_RAW,
-    GCP_PROJECT_ID,
-)
+from src.config.settings import settings
 from src.observability.logger import get_logger
 from src.observability.ops_logger import PipelineRunLog, log_pipeline_run
 
@@ -22,34 +17,57 @@ def _count_rows(
     timestamp_column: str,
     year_month: str,
 ) -> int:
+    """
+    Count rows for a specific year-month string safely using BigQuery query parameters.
+    """
     query = f"""
         SELECT COUNT(*) AS cnt
         FROM `{table_id}`
-        WHERE FORMAT_TIMESTAMP('%Y-%m', {timestamp_column}) = '{year_month}'
+        WHERE FORMAT_TIMESTAMP('%Y-%m', {timestamp_column}) = @year_month
     """
-    return next(iter(client.query(query)))["cnt"]
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("year_month", "STRING", year_month),
+        ]
+    )
+
+    query_job = client.query(query, job_config=job_config)
+    row = next(query_job.result())
+    return int(row["cnt"])
 
 
 def _get_rows_count(
-    client: bigquery.Client, task_id: str, year_month: str
+    client: bigquery.Client,
+    task_id: str,
+    year_month: str,
 ) -> tuple[int | None, int | None, int | None]:
+    """
+    Calculate rows_read, rows_written, and rows_quarantined based on task_id.
+    """
     rows_read = None
     rows_written = None
     rows_quarantined = None
 
     if "load_trip_data_raw" in task_id:
         rows_read = _count_rows(
-            client, BQ_TABLE_TRIP_RAW, "lpep_pickup_datetime", year_month
+            client,
+            settings.bq_table_trip_raw,
+            "lpep_pickup_datetime",
+            year_month,
         )
         rows_written = rows_read
 
     elif "dbt_run_staging" in task_id:
         rows_read = _count_rows(
-            client, BQ_TABLE_TRIP_RAW, "lpep_pickup_datetime", year_month
+            client,
+            settings.bq_table_trip_raw,
+            "lpep_pickup_datetime",
+            year_month,
         )
         rows_written = _count_rows(
             client,
-            f"{GCP_PROJECT_ID}.{BQ_DATASET_STAGING}.stg_batch_trips",
+            f"{settings.gcp_project_id}.{settings.bq_dataset_staging}.stg_batch_trips",
             "pickup_datetime",
             year_month,
         )
@@ -57,19 +75,19 @@ def _get_rows_count(
     elif "dbt_run_intermediate" in task_id:
         rows_read = _count_rows(
             client,
-            f"{GCP_PROJECT_ID}.{BQ_DATASET_STAGING}.stg_batch_trips",
+            f"{settings.gcp_project_id}.{settings.bq_dataset_staging}.stg_batch_trips",
             "pickup_datetime",
             year_month,
         )
         rows_written = _count_rows(
             client,
-            f"{GCP_PROJECT_ID}.{BQ_DATASET_INTERMEDIATE}.int_batch_trips_clean",
+            f"{settings.gcp_project_id}.{settings.bq_dataset_intermediate}.int_batch_trips_clean",
             "pickup_datetime",
             year_month,
         )
         rows_quarantined = _count_rows(
             client,
-            f"{GCP_PROJECT_ID}.{BQ_DATASET_INTERMEDIATE}.int_batch_trips_quarantine",
+            f"{settings.gcp_project_id}.{settings.bq_dataset_intermediate}.int_batch_trips_quarantine",
             "pickup_datetime",
             year_month,
         )
@@ -77,13 +95,13 @@ def _get_rows_count(
     elif "dbt_run_marts" in task_id:
         rows_read = _count_rows(
             client,
-            f"{GCP_PROJECT_ID}.{BQ_DATASET_INTERMEDIATE}.int_unified_trips_clean",
+            f"{settings.gcp_project_id}.{settings.bq_dataset_intermediate}.int_unified_trips_clean",
             "pickup_datetime",
             year_month,
         )
         rows_written = _count_rows(
             client,
-            f"{GCP_PROJECT_ID}.{BQ_DATASET_MARTS}.fct_trips",
+            f"{settings.gcp_project_id}.{settings.bq_dataset_marts}.fct_trips",
             "pickup_datetime",
             year_month,
         )
@@ -91,7 +109,10 @@ def _get_rows_count(
     return rows_read, rows_written, rows_quarantined
 
 
-def record_task_log(context: dict, status: str) -> None:
+def record_task_log(context: dict[str, Any], status: str) -> None:
+    """
+    Record task execution logs and metrics into operational storage.
+    """
     task_instance = context.get("task_instance")
     dag_run = context.get("dag_run")
     dag = context.get("dag")
@@ -115,8 +136,11 @@ def record_task_log(context: dict, status: str) -> None:
             if data_interval_start:
                 client = bigquery.Client()
                 year_month = data_interval_start.strftime("%Y-%m")
+
                 rows_read, rows_written, rows_quarantined = _get_rows_count(
-                    client=client, task_id=task_id, year_month=year_month
+                    client=client,
+                    task_id=task_id,
+                    year_month=year_month,
                 )
         except GoogleCloudError as err:
             logger.warning(
@@ -143,9 +167,15 @@ def record_task_log(context: dict, status: str) -> None:
     )
 
 
-def task_success_callback(context):
+def task_success_callback(context: dict[str, Any]) -> None:
+    """
+    Airflow callback function triggered when a task succeeds.
+    """
     record_task_log(context, "SUCCESS")
 
 
-def task_failure_callback(context):
+def task_failure_callback(context: dict[str, Any]) -> None:
+    """
+    Airflow callback function triggered when a task fails.
+    """
     record_task_log(context, "FAILED")

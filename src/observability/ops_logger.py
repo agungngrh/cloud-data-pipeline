@@ -5,7 +5,7 @@ from typing import Any
 from google.cloud import bigquery
 from google.cloud.exceptions import GoogleCloudError
 
-from src.config.settings import OPS_TABLE_ID
+from src.config.settings import settings
 from src.observability.logger import get_logger
 
 logger = get_logger(__name__)
@@ -62,7 +62,7 @@ def log_pipeline_run(log_data: PipelineRunLog) -> None:
         client = bigquery.Client()
 
         errors = client.insert_rows_json(
-            OPS_TABLE_ID,
+            settings.ops_table_id,
             [log_data.to_dict()],
         )
 
