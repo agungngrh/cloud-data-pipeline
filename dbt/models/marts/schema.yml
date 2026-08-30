@@ -71,7 +71,7 @@ models:
   - name: agg_route_performance
     description: "Route performance metrics grouped by pickup and dropoff locations."
     columns:
-      - name: pickup_location_id
+      - name: pickup_location_id # Diubah dari pu_location_id sesuai error SQL
         data_tests:
           - not_null
 
