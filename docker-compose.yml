@@ -16,10 +16,8 @@ x-airflow-common: &airflow-common
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/logs:/opt/airflow/logs
     - ./airflow/plugins:/opt/airflow/plugins
-    - ./scripts:/opt/airflow/scripts
+    - ./src:/opt/airflow/src
     - ./dbt:/opt/airflow/dbt
-    - ./config:/opt/airflow/config
-    - ./utils:/opt/airflow/utils
     - ./secrets:/opt/airflow/secrets:ro
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:

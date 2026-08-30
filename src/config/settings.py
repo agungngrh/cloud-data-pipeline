@@ -1,54 +1,74 @@
-import os
-
-from dotenv import load_dotenv
-
-load_dotenv()
+from pydantic import computed_field, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def get_env(key: str, default: str | None = None, required: bool = True) -> str:
-    """
-    Retrieve environment variable with optional fallback and strict validation
-    """
-    value = os.environ.get(key, default)
-    if required and (value is None or not value.strip()):
-        raise ValueError(f"Missing required environment variable: '{key}' in .env")
-    return value or ""
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    gcp_project_id: str
+    student_id: str
+    gcp_region: str
+    gcs_bucket: str
+    gcs_raw_path: str
+    gcs_staging_location: str
+    gcs_temp_location: str
+    pubsub_topic: str
+    pubsub_subscription: str
+    bq_dataset_raw: str
+    bq_dataset_staging: str
+    bq_dataset_intermediate: str
+    bq_dataset_marts: str
+    bq_dataset_ops: str
+    dataflow_stream_job_prefix: str | None = None
+
+    dbt_project_dir: str = "/opt/airflow/dbt"
+    dbt_profiles_dir: str = "/opt/airflow/dbt"
+
+    streaming_requirements_file: str = "./src/streaming/requirements.txt"
+
+    @model_validator(mode="after")
+    def _apply_defaults(self) -> "Settings":
+        if not self.dataflow_stream_job_prefix:
+            self.dataflow_stream_job_prefix = f"{self.student_id}-stream"
+        return self
+
+    @computed_field
+    @property
+    def subscription_path(self) -> str:
+        return (
+            f"projects/{self.gcp_project_id}/subscriptions/{self.pubsub_subscription}"
+        )
+
+    @computed_field
+    @property
+    def bq_table_trip_raw(self) -> str:
+        return f"{self.gcp_project_id}.{self.bq_dataset_raw}.raw_taxi_trip"
+
+    @computed_field
+    @property
+    def bq_table_stream_clean(self) -> str:
+        return (
+            f"{self.gcp_project_id}.{self.bq_dataset_intermediate}"
+            ".int_stream_trips_clean"
+        )
+
+    @computed_field
+    @property
+    def bq_table_stream_quarantine(self) -> str:
+        return (
+            f"{self.gcp_project_id}.{self.bq_dataset_intermediate}"
+            ".int_stream_trips_quarantine"
+        )
+
+    @computed_field
+    @property
+    def ops_table_id(self) -> str:
+        return f"{self.gcp_project_id}.{self.bq_dataset_ops}.pipeline_run_log"
 
 
-GCP_PROJECT_ID = get_env("GCP_PROJECT_ID")
-STUDENT_ID = get_env("STUDENT_ID")
-GCP_REGION = get_env("GCP_REGION")
-
-GCS_BUCKET = get_env("GCS_BUCKET")
-GCS_RAW_PATH = get_env("GCS_RAW_PATH")
-GCS_STAGING_LOCATION = get_env("GCS_STAGING_LOCATION")
-GCS_TEMP_LOCATION = get_env("GCS_TEMP_LOCATION")
-
-PUBSUB_TOPIC = get_env("PUBSUB_TOPIC")
-PUBSUB_SUBSCRIPTION = get_env("PUBSUB_SUBSCRIPTION")
-SUBSCRIPTION_PATH = f"projects/{GCP_PROJECT_ID}/subscriptions/{PUBSUB_SUBSCRIPTION}"
-
-BQ_DATASET_RAW = get_env("BQ_DATASET_RAW")
-BQ_DATASET_STAGING = get_env("BQ_DATASET_STAGING")
-BQ_DATASET_INTERMEDIATE = get_env("BQ_DATASET_INTERMEDIATE")
-BQ_DATASET_MARTS = get_env("BQ_DATASET_MARTS")
-OPS_DATASET = get_env("BQ_DATASET_OPS")
-
-DATAFLOW_STREAM_JOB_PREFIX = get_env(
-    "DATAFLOW_STREAM_JOB_PREFIX", default=f"{STUDENT_ID}-stream", required=False
-)
-
-TABLE_TRIP_RAW = "raw_taxi_trip"
-TABLE_TAXI_ZONE = "taxi_zone_lookup"
-BQ_TABLE_TRIP_RAW = f"{GCP_PROJECT_ID}.{BQ_DATASET_RAW}.{TABLE_TRIP_RAW}"
-
-TABLE_STREAM_CLEAN = "int_stream_trips_clean"
-TABLE_STREAM_QUARANTINE = "int_stream_trips_quarantine"
-BQ_TABLE_STREAM_CLEAN = (
-    f"{GCP_PROJECT_ID}.{BQ_DATASET_INTERMEDIATE}.{TABLE_STREAM_CLEAN}"
-)
-BQ_TABLE_STREAM_QUARANTINE = (
-    f"{GCP_PROJECT_ID}.{BQ_DATASET_INTERMEDIATE}.{TABLE_STREAM_QUARANTINE}"
-)
-
-OPS_TABLE_ID = f"{GCP_PROJECT_ID}.{OPS_DATASET}.pipeline_run_log"
+settings = Settings()  # type: ignore[call-arg]

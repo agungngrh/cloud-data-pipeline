@@ -272,17 +272,13 @@ secrets/
 *.json
 !dbt/graph_summary.json  
 
-# ==========================================
 # Environment & Credentials
-# ==========================================
 .env
 secrets/*
 !secrets/.gitkeep
 !data/profile/profile_output.json
 
-# ==========================================
 # Python Artifacts
-# ==========================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -290,30 +286,23 @@ __pycache__/
 env/
 venv/
 
-# ==========================================
 # Airflow Logs & Data
-# ==========================================
 airflow/logs/
 airflow/airflow-webserver.pid
 
-# ==========================================
 # dbt Generated Artifacts
-# ==========================================
 dbt/target/
 dbt/logs/
 dbt/dbt_packages/
 dbt/seeds/taxi_zone_lookup.csv
 
-# ==========================================
+
 # Local Raw Data (Large Files)
-# ==========================================
 data/raw/*.parquet
 data/raw/*.csv
 data/profile/*.json
 
-# ==========================================
 # OS & IDE Files
-# ==========================================
 .DS_Store
 .vscode/
 .idea/
@@ -329,3 +318,19 @@ terraform.tfvars
 
 *.csv
 !dbt/seeds/*.csv
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.pyc
+
+# Auto-copied runtime asset (regenerated tiap build)
+src/streaming/trip_event.avsc
+
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/terraform/terraform.tfvars

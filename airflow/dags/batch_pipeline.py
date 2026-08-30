@@ -1,7 +1,7 @@
-# File: dags/batch_trip_pipeline.py
-from datetime import datetime, timedelta
+import json
+from datetime import timedelta
 
-from airflow import DAG
+import pendulum
 from airflow.operators.bash import BashOperator
 from airflow.providers.google.cloud.operators.bigquery import (
     BigQueryInsertJobOperator,
@@ -12,8 +12,8 @@ from airflow.providers.google.cloud.transfers.gcs_to_bigquery import (
 )
 from airflow.utils.task_group import TaskGroup
 
-from src.config.constants import DBT_PROJECT_DIR
-from src.config.settings import BQ_TABLE_TRIP_RAW, GCS_BUCKET
+from airflow import DAG
+from src.config.settings import settings
 from src.observability.airflow_ops_logger import (
     task_failure_callback,
     task_success_callback,
@@ -31,7 +31,9 @@ DEFAULT_ARGS = {
 
 
 def create_dbt_layer(layer_name: str, dbt_vars: str) -> TaskGroup:
-    """Create a standardized dbt run and test TaskGroup."""
+    """
+    Create a standardized dbt run and test TaskGroup.
+    """
     with TaskGroup(
         group_id=f"{layer_name}_layer",
         tooltip=f"Run and test {layer_name} dbt models",
@@ -40,7 +42,7 @@ def create_dbt_layer(layer_name: str, dbt_vars: str) -> TaskGroup:
         run = BashOperator(
             task_id=f"dbt_run_{layer_name}",
             bash_command=(
-                f"cd {DBT_PROJECT_DIR} && "
+                f"cd {settings.dbt_project_dir} && "
                 f"dbt run --select {layer_name} --vars '{dbt_vars}'"
             ),
         )
@@ -48,7 +50,7 @@ def create_dbt_layer(layer_name: str, dbt_vars: str) -> TaskGroup:
         test = BashOperator(
             task_id=f"dbt_test_{layer_name}",
             bash_command=(
-                f"cd {DBT_PROJECT_DIR} && "
+                f"cd {settings.dbt_project_dir} && "
                 f"dbt test --select {layer_name} --vars '{dbt_vars}'"
             ),
         )
@@ -61,16 +63,16 @@ def create_dbt_layer(layer_name: str, dbt_vars: str) -> TaskGroup:
 with DAG(
     dag_id="agungnugraha_batch_trip_pipeline",
     schedule="@monthly",
-    start_date=datetime(2026, 4, 1),
-    end_date=datetime(2026, 5, 31),
+    start_date=pendulum.datetime(2026, 4, 1, tz="UTC"),
+    end_date=pendulum.datetime(2026, 5, 31, tz="UTC"),
     catchup=True,
     max_active_runs=1,
     default_args=DEFAULT_ARGS,
     tags=["gcs", "bigquery", "dbt", "ops"],
 ) as dag:
 
-    dbt_vars = (
-        '{"reporting_year_month": "{{ data_interval_start.strftime(\'%Y-%m\') }}"}'
+    dbt_vars = json.dumps(
+        {"reporting_year_month": "{{ data_interval_start.strftime('%Y-%m') }}"}
     )
 
     with TaskGroup(
@@ -80,8 +82,11 @@ with DAG(
 
         check_trip_file = GCSObjectExistenceSensor(
             task_id="check_trip_file",
-            bucket=GCS_BUCKET,
-            object='raw/green_tripdata_{{ data_interval_start.strftime("%Y-%m") }}.parquet',
+            bucket=settings.gcs_bucket,
+            object=(
+                "raw/green_tripdata_"
+                '{{ data_interval_start.strftime("%Y-%m") }}.parquet'
+            ),
             google_cloud_conn_id="google_cloud_default",
             timeout=300,
             poke_interval=60,
@@ -93,7 +98,7 @@ with DAG(
             configuration={
                 "query": {
                     "query": f"""
-                        CREATE TABLE IF NOT EXISTS `{BQ_TABLE_TRIP_RAW}`
+                        CREATE TABLE IF NOT EXISTS `{settings.bq_table_trip_raw}`
                         (
                             VendorID INT64,
                             lpep_pickup_datetime TIMESTAMP,
@@ -130,11 +135,11 @@ with DAG(
             task_id="delete_trip_period",
             configuration={
                 "query": {
-                    "query": f"""
-                        DELETE FROM `{BQ_TABLE_TRIP_RAW}`
-                        WHERE lpep_pickup_datetime >= TIMESTAMP('{{ data_interval_start }}')
-                          AND lpep_pickup_datetime < TIMESTAMP('{{ data_interval_end }}')
-                    """,
+                    "query": (
+                        f"DELETE FROM `{settings.bq_table_trip_raw}`\n"
+                        "WHERE lpep_pickup_datetime >= TIMESTAMP('{{ data_interval_start }}')\n"
+                        "  AND lpep_pickup_datetime < TIMESTAMP('{{ data_interval_end }}')"
+                    ),
                     "useLegacySql": False,
                 }
             },
@@ -143,11 +148,12 @@ with DAG(
 
         load_trip_data_raw = GCSToBigQueryOperator(
             task_id="load_trip_data_raw",
-            bucket=GCS_BUCKET,
+            bucket=settings.gcs_bucket,
             source_objects=[
-                'raw/green_tripdata_{{ data_interval_start.strftime("%Y-%m") }}.parquet'
+                "raw/green_tripdata_"
+                '{{ data_interval_start.strftime("%Y-%m") }}.parquet'
             ],
-            destination_project_dataset_table=BQ_TABLE_TRIP_RAW,
+            destination_project_dataset_table=settings.bq_table_trip_raw,
             source_format="PARQUET",
             write_disposition="WRITE_APPEND",
             autodetect=True,

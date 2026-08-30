@@ -69,6 +69,7 @@ SCHEMA_QUARANTINE_TRIPS = [
     bigquery.SchemaField("is_valid_location", "BOOL"),
     bigquery.SchemaField("amount_mismatch", "BOOL"),
     bigquery.SchemaField("quarantine_reason", "STRING"),
+    bigquery.SchemaField("raw_payload", "STRING", mode="NULLABLE"),
     bigquery.SchemaField("dq_checked_at", "TIMESTAMP"),
     bigquery.SchemaField("_loaded_at", "TIMESTAMP", mode="NULLABLE"),
     bigquery.SchemaField("_data_source", "STRING", mode="NULLABLE"),

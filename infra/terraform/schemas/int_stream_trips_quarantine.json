@@ -155,6 +155,11 @@
     "mode": "NULLABLE"
   },
   {
+  "name": "raw_payload",
+  "type": "STRING",
+  "mode": "NULLABLE"
+  },
+  {
     "name": "dq_checked_at",
     "type": "TIMESTAMP",
     "mode": "NULLABLE"

@@ -1,15 +1,17 @@
 import argparse
 import signal
 import time
+from io import StringIO
 from typing import Any
 
+from fastavro import json_writer
 from google.api_core.exceptions import GoogleAPIError
 from google.cloud import pubsub_v1
 
 from src.config.constants import END_DATE, START_DATE
-from src.config.settings import GCP_PROJECT_ID, PUBSUB_TOPIC
+from src.config.settings import settings
 from src.observability.logger import get_logger
-from src.streaming.avro_schema import encode_avro_json, load_pubsub_schema
+from src.streaming.avro_schema import load_pubsub_schema
 from src.streaming.event_generator import generate_event, load_profile
 
 logger = get_logger(__name__)
@@ -17,7 +19,7 @@ logger = get_logger(__name__)
 
 class GracefulShutdown:
     """
-    Handle OS signals to shut down the publisher loop gracefully
+    Handle OS signals to shut down the publisher loop gracefully.
     """
 
     def __init__(self) -> None:
@@ -26,7 +28,7 @@ class GracefulShutdown:
         signal.signal(signal.SIGTERM, self._handle)
 
     def _handle(self, signum: int, _frame: Any) -> None:
-        logger.info(f"Signal {signum} received. Stopping publisher loop.")
+        logger.info("Signal %s received. Stopping publisher loop.", signum)
         self.should_stop = True
 
 
@@ -37,9 +39,11 @@ def publish_event(
     schema: dict[str, Any],
 ) -> str:
     """
-    Publish a single Avro-encoded event to Pub/Sub
+    Publish a single Avro-encoded event to Pub/Sub.
     """
-    payload = encode_avro_json(event, schema)
+    buffer = StringIO()
+    json_writer(buffer, schema, [event])
+    payload = buffer.getvalue().encode("utf-8")
 
     attributes = {
         "event_id": str(event["event_id"]),
@@ -57,7 +61,7 @@ def run_publisher(rate: float, max_events: int | None = None) -> None:
     """
     profile = load_profile()
     publisher = pubsub_v1.PublisherClient()
-    topic_path = publisher.topic_path(GCP_PROJECT_ID, PUBSUB_TOPIC)
+    topic_path = publisher.topic_path(settings.gcp_project_id, settings.pubsub_topic)
     schema = load_pubsub_schema()
 
     shutdown = GracefulShutdown()
@@ -65,8 +69,10 @@ def run_publisher(rate: float, max_events: int | None = None) -> None:
     count = 0
 
     logger.info(
-        f"Starting publisher [rate={rate} msg/s, "
-        f"max={max_events or 'unlimited'}, topic={topic_path}]"
+        "Starting publisher [rate=%s msg/s, max=%s, topic=%s]",
+        rate,
+        max_events or "unlimited",
+        topic_path,
     )
 
     try:
@@ -78,27 +84,33 @@ def run_publisher(rate: float, max_events: int | None = None) -> None:
                 msg_id = publish_event(publisher, topic_path, event, schema)
                 count += 1
                 logger.info(
-                    f"Published message {count} | msg_id={msg_id} | "
-                    f"event_id={event['event_id']}"
+                    "Published message %s | msg_id=%s | event_id=%s",
+                    count,
+                    msg_id,
+                    event["event_id"],
                 )
 
             except GoogleAPIError as err:
-                logger.error(f"Failed to publish event {event.get('event_id')}: {err}")
+                logger.error(
+                    "Failed to publish event %s: %s",
+                    event.get("event_id"),
+                    err,
+                )
 
             if max_events and count >= max_events:
-                logger.info(f"Reached target max events ({max_events}). Exiting.")
+                logger.info("Reached target max events (%s). Exiting.", max_events)
                 break
 
             elapsed = time.monotonic() - loop_start
             time.sleep(max(0.0, interval - elapsed))
 
     finally:
-        logger.info(f"Publisher stopped. Total published messages: {count}")
+        logger.info("Publisher stopped. Total published messages: %s", count)
 
 
 def parse_args() -> argparse.Namespace:
     """
-    Parse and validate command-line arguments for the publisher script
+    Parse and validate command-line arguments for the publisher script.
     """
     parser = argparse.ArgumentParser(description="Google Pub/Sub Event Publisher")
     parser.add_argument("--rate", type=float, default=1.0)

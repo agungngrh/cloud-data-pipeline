@@ -5,13 +5,11 @@ import pytest
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that, equal_to
 
-from src.streaming.pipeline import (
+from src.streaming.transforms import (
     ParseEventFn,
     ValidateAndRouteFn,
     _build_output_row,
 )
-
-# --- FIXTURES & DUMMY DATA ---
 
 
 @pytest.fixture
@@ -41,9 +39,6 @@ def sample_event():
     }
 
 
-# --- 1. UNIT TEST FOR HELPER FUNCTIONS ---
-
-
 def test_build_output_row():
     data = {
         "event_id": "evt-001",
@@ -62,11 +57,8 @@ def test_build_output_row():
     assert row["_data_source"] == "streaming"
 
 
-# --- 2. UNIT TEST FOR PARSE EVENT FN ---
-
-
-@patch("src.streaming.pipeline.load_pubsub_schema")
-@patch("src.streaming.pipeline.json_reader")
+@patch("src.streaming.transforms.load_pubsub_schema")
+@patch("src.streaming.transforms.json_reader")
 def test_parse_event_fn_success(mock_reader, mock_load_schema, mock_avro_schema):
     mock_load_schema.return_value = mock_avro_schema
     mock_reader.return_value = iter([{"event_id": "evt-001"}])
@@ -77,33 +69,45 @@ def test_parse_event_fn_success(mock_reader, mock_load_schema, mock_avro_schema)
     results = list(fn.process(b"dummy_bytes"))
 
     assert len(results) == 1
-    assert results[0]["event_id"] == "evt-001"
-    assert "ingestion_time" in results[0]
+    assert results[0].tag == "parsed"
+    assert results[0].value["event_id"] == "evt-001"
+    assert "ingestion_time" in results[0].value
 
 
-@patch("src.streaming.pipeline.load_pubsub_schema")
-@patch("src.streaming.pipeline.json_reader")
-def test_parse_event_fn_error_handling(mock_reader, mock_load_schema, mock_avro_schema):
+@patch("src.streaming.transforms.load_pubsub_schema")
+@patch("src.streaming.transforms.json_reader")
+def test_parse_event_fn_routes_corrupt_payload_to_quarantine(
+    mock_reader, mock_load_schema, mock_avro_schema
+):
+    """
+    Parse failure TIDAK BOLEH hilang diam-diam.
+    Event yang gagal parse harus di-route ke 'quarantine',
+    lengkap dengan raw_payload & alasan kegagalannya.
+    """
     mock_load_schema.return_value = mock_avro_schema
     mock_reader.side_effect = Exception("Corrupted Avro Data")
 
     fn = ParseEventFn()
     fn.setup()
 
-    # Harus di-catch oleh Exception handler dan tidak memutus pipeline (yield kosong)
     results = list(fn.process(b"invalid_bytes"))
-    assert len(results) == 0
+
+    assert len(results) == 1
+    assert results[0].tag == "quarantine"
+
+    row = results[0].value
+    assert row["is_valid"] is False
+    assert "PARSE_ERROR" in row["quarantine_reason"]
+    assert "Corrupted Avro Data" in row["quarantine_reason"]
+    assert row["raw_payload"] == "invalid_bytes"
+    assert row["_data_source"] == "streaming"
 
 
-# --- 3. PIPELINE INTEGRATION TEST (VALIDATION & ROUTING) ---
-
-
-@patch("src.streaming.pipeline.build_validation_result")
-@patch("src.streaming.pipeline.build_transformation_result")
+@patch("src.streaming.transforms.build_validation_result")
+@patch("src.streaming.transforms.build_transformation_result")
 def test_validate_and_route_fn_clean_routing(
     mock_transform, mock_validate, sample_event
 ):
-    # Mocking event valid
     mock_validate.return_value = {**sample_event, "is_valid": True}
     mock_transform.return_value = {"duration_minutes": 10.5}
 
@@ -114,7 +118,6 @@ def test_validate_and_route_fn_clean_routing(
             ValidateAndRouteFn()
         ).with_outputs("clean", "quarantine")
 
-        # Verifikasi bahwa output masuk ke cabang 'clean'
         def check_clean_output(actual):
             assert len(actual) == 1
             assert actual[0]["event_id"] == "evt-001"
@@ -124,9 +127,8 @@ def test_validate_and_route_fn_clean_routing(
         assert_that(results.quarantine, equal_to([]), label="CheckQuarantineEmpty")
 
 
-@patch("src.streaming.pipeline.build_validation_result")
+@patch("src.streaming.transforms.build_validation_result")
 def test_validate_and_route_fn_quarantine_routing(mock_validate, sample_event):
-    # Mocking event invalid
     mock_validate.return_value = {
         **sample_event,
         "is_valid": False,
@@ -140,7 +142,6 @@ def test_validate_and_route_fn_quarantine_routing(mock_validate, sample_event):
             ValidateAndRouteFn()
         ).with_outputs("clean", "quarantine")
 
-        # Verifikasi bahwa output masuk ke cabang 'quarantine'
         def check_quarantine_output(actual):
             assert len(actual) == 1
             assert actual[0]["event_id"] == "evt-001"

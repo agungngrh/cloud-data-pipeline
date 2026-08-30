@@ -1,57 +1,73 @@
-from unittest.mock import patch
-
 import pytest
 
-# Mocking constants sebelum mengimpor fungsi validasi
-with patch("src.config.constants.REQUIRED_FIELDS", ["event_id", "vendor_id"]), patch(
-    "src.config.constants.INVALID_LOCATION_IDS", {264, 265}
-), patch(
-    "src.config.constants.AMOUNT_COMPONENT_FIELDS",
-    ["fare_amount", "extra", "mta_tax", "tip_amount", "tolls_amount"],
-):
-    from src.core.validation import (
-        build_validation_result,
-        is_amount_mismatch,
-        is_complete_record,
-        is_valid_distance,
-        is_valid_fare,
-        is_valid_location,
-        is_valid_passenger_count,
+from src.core.validation import (
+    build_validation_result,
+    is_amount_mismatch,
+    is_complete_record,
+    is_valid_distance,
+    is_valid_fare,
+    is_valid_location,
+    is_valid_passenger_count,
+)
+
+
+@pytest.fixture(autouse=True)
+def _patch_constants(monkeypatch):
+    monkeypatch.setattr(
+        "src.core.validation.REQUIRED_FIELDS",
+        ["vendor_id", "rate_code_id", "passenger_count", "payment_type", "trip_type"],
+    )
+    monkeypatch.setattr("src.core.validation.INVALID_LOCATION_IDS", {264, 265})
+    monkeypatch.setattr(
+        "src.core.validation.AMOUNT_COMPONENT_FIELDS",
+        [
+            "fare_amount",
+            "extra",
+            "mta_tax",
+            "tip_amount",
+            "tolls_amount",
+            "improvement_surcharge",
+            "congestion_surcharge",
+        ],
     )
 
 
-# --- FIXTURES ---
 @pytest.fixture
 def valid_event():
-    """Fixture event dasar yang memenuhi semua kriteria validasi"""
+    """Fixture event dasar yang memenuhi semua kriteria validasi.
+
+    Field harus lengkap sesuai REQUIRED_FIELDS production
+    (vendor_id, rate_code_id, passenger_count, payment_type, trip_type)
+    plus semua AMOUNT_COMPONENT_FIELDS production.
+    """
     return {
         "event_id": "evt-123",
         "vendor_id": 1,
+        "rate_code_id": 1,
+        "passenger_count": 2,
+        "payment_type": 1,
+        "trip_type": 1,
         "trip_distance": 2.5,
         "fare_amount": 10.0,
         "extra": 0.5,
         "mta_tax": 0.5,
         "tip_amount": 2.0,
         "tolls_amount": 0.0,
-        "total_amount": 13.0,
-        "passenger_count": 2,
+        "improvement_surcharge": 0.3,
+        "congestion_surcharge": 0.0,
+        "total_amount": 13.8,
         "pu_location_id": 100,
         "do_location_id": 101,
     }
 
 
-# --- UNIT TESTS FOR INDIVIDUAL VALIDATORS ---
-
-
 def test_is_complete_record(valid_event):
     assert is_complete_record(valid_event) is True
 
-    # Missing required field
     incomplete_event = {"event_id": "evt-123"}
     assert is_complete_record(incomplete_event) is False
 
-    # Required field is None
-    none_event = {"event_id": "evt-123", "vendor_id": None}
+    none_event = {**valid_event, "vendor_id": None}
     assert is_complete_record(none_event) is False
 
 
@@ -59,9 +75,9 @@ def test_is_complete_record(valid_event):
     "distance, expected",
     [
         (5.0, True),
-        (0.0, True),  # Distance 0 tetep valid (non-negative)
-        (-1.0, False),  # Negative distance
-        (None, False),  # Missing distance
+        (0.0, True),
+        (-1.0, False),
+        (None, False),
     ],
 )
 def test_is_valid_distance(valid_event, distance, expected):
@@ -91,7 +107,7 @@ def test_is_valid_fare(valid_event, fare, total, expected):
     [
         (1, True),
         (4, True),
-        (0, False),  # Passenger count minimal 1
+        (0, False),
         (-1, False),
         (None, False),
     ],
@@ -105,8 +121,8 @@ def test_is_valid_passenger_count(valid_event, count, expected):
     "pu_id, do_id, expected",
     [
         (100, 101, True),
-        (264, 101, False),  # 264 is in INVALID_LOCATION_IDS
-        (100, 265, False),  # 265 is in INVALID_LOCATION_IDS
+        (264, 101, False),
+        (100, 265, False),
         (None, 101, False),
         (100, None, False),
     ],
@@ -118,22 +134,18 @@ def test_is_valid_location(valid_event, pu_id, do_id, expected):
 
 
 def test_is_amount_mismatch(valid_event):
-    # Total match: 10.0 + 0.5 + 0.5 + 2.0 + 0.0 = 13.0
+    valid_event["total_amount"] = 13.3
     assert is_amount_mismatch(valid_event) is False
 
-    # Mismatch total
     valid_event["total_amount"] = 99.0
     assert is_amount_mismatch(valid_event) is True
 
-    # None total
     valid_event["total_amount"] = None
     assert is_amount_mismatch(valid_event) is True
 
 
-# --- INTEGRATION TEST FOR BUILD_VALIDATION_RESULT ---
-
-
 def test_build_validation_result_success(valid_event):
+    valid_event["total_amount"] = 13.3
     result = build_validation_result(valid_event)
 
     assert result["is_valid"] is True
@@ -148,9 +160,8 @@ def test_build_validation_result_success(valid_event):
 
 
 def test_build_validation_result_quarantine(valid_event):
-    # Buat event gagal di multiple rules
-    valid_event["trip_distance"] = -5.0  # invalid_distance
-    valid_event["passenger_count"] = 0  # invalid_passenger_count
+    valid_event["trip_distance"] = -5.0
+    valid_event["passenger_count"] = 0
 
     result = build_validation_result(valid_event)
 

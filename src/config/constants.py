@@ -1,12 +1,11 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-RAW_DATA_DIR = BASE_DIR / "data" / "raw"
-PROFILE_DIR = BASE_DIR / "data" / "profile"
-BATCH_PROFILING = PROFILE_DIR / "profile_output.json"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-AVSC_PATH = BASE_DIR / "terraform" / "schemas" / "trip_event.avsc"
+RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
+PROFILE_DIR = PROJECT_ROOT / "data" / "profile"
+BATCH_PROFILING_OUTPUTH_PATH = PROFILE_DIR / "profile_output.json"
 
 GREEN_TAXI_DATASET_URLS: tuple[str, ...] = (
     "https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_2026-04.parquet",
@@ -16,9 +15,6 @@ GREEN_TAXI_DATASET_URLS: tuple[str, ...] = (
 
 DOWNLOAD_TIMEOUT_SECONDS = 30
 HTTP_MAX_RETRIES = 3
-
-DBT_PROJECT_DIR = "/opt/airflow/dbt"
-DBT_PROFILES_DIR = "/opt/airflow/dbt"
 
 RANDOM_SEED = 42
 MAX_DISTANCE_POOL_SIZE = 10_000
@@ -62,7 +58,6 @@ AMOUNT_COMPONENT_FIELDS: list[str] = [
     "improvement_surcharge",
     "congestion_surcharge",
 ]
-
 
 PAYMENT_LABELS: dict[int, str] = {
     1: "Credit Card",

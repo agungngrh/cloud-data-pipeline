@@ -8,8 +8,6 @@ from src.streaming.event_generator import (
     compute_total_amount,
 )
 
-# --- compute_fare_amount ---
-
 
 def test_compute_fare_amount_uses_fixed_rate():
     profile = {"fare_per_mile": {"p10": 2.0, "p90": 2.0}}
@@ -19,9 +17,6 @@ def test_compute_fare_amount_uses_fixed_rate():
 def test_compute_fare_amount_zero_distance():
     profile = {"fare_per_mile": {"p10": 3.5, "p90": 3.5}}
     assert compute_fare_amount(trip_distance=0.0, profile=profile) == 0.0
-
-
-# --- compute_tip_amount ---
 
 
 def test_tip_zero_when_not_credit_card():
@@ -52,16 +47,13 @@ def test_tip_calculated_for_credit_card():
     assert compute_tip_amount(fare_amount=10.0, payment_type=1, profile=profile) == 1.5
 
 
-# --- compute_dropoff_datetime ---
-
-
 def test_dropoff_datetime_adds_correct_duration():
     pickup = datetime(2026, 6, 1, 10, 0, 0)
     profile = {"speed_distribution": {"p10": 30.0, "p90": 30.0}}
     dropoff = compute_dropoff_datetime(
         pickup_datetime=pickup, trip_distance=5.0, profile=profile
     )
-    assert dropoff == datetime(2026, 6, 1, 10, 10, 0)  # 5 mil @ 30 mph = 10 menit
+    assert dropoff == datetime(2026, 6, 1, 10, 10, 0)
 
 
 def test_dropoff_datetime_has_minimum_one_minute_floor():
@@ -70,12 +62,7 @@ def test_dropoff_datetime_has_minimum_one_minute_floor():
     dropoff = compute_dropoff_datetime(
         pickup_datetime=pickup, trip_distance=0.01, profile=profile
     )
-    assert dropoff == datetime(
-        2026, 6, 1, 10, 1, 0
-    )  # durasi hitung <1 menit, wajib floor ke 1
-
-
-# --- compute_total_amount ---
+    assert dropoff == datetime(2026, 6, 1, 10, 1, 0)
 
 
 def test_compute_total_amount_sums_all_components():
@@ -104,3 +91,28 @@ def test_compute_total_amount_rounds_to_two_decimals():
         cbd_congestion_fee=0,
     )
     assert total == 10.11
+
+
+def test_compute_fare_amount_within_percentile_range():
+    profile = {"fare_per_mile": {"p10": 2.0, "p90": 4.0}}
+    for _ in range(100):
+        fare = compute_fare_amount(trip_distance=5.0, profile=profile)
+        assert 10.0 <= fare <= 20.0
+
+
+def test_compute_tip_amount_within_percentile_range():
+    profile = {"tip_per_fare": {"p10": 0.10, "p90": 0.20}}
+    for _ in range(100):
+        tip = compute_tip_amount(fare_amount=10.0, payment_type=1, profile=profile)
+        assert 1.0 <= tip <= 2.0
+
+
+def test_compute_dropoff_datetime_within_percentile_range():
+    pickup = datetime(2026, 6, 1, 10, 0, 0)
+    profile = {"speed_distribution": {"p10": 20.0, "p90": 40.0}}
+    for _ in range(100):
+        dropoff = compute_dropoff_datetime(
+            pickup_datetime=pickup, trip_distance=10.0, profile=profile
+        )
+        duration_minutes = (dropoff - pickup).total_seconds() / 60
+        assert 15.0 <= duration_minutes <= 30.0
