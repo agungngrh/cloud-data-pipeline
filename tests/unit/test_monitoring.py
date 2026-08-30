@@ -46,11 +46,6 @@ def test_get_written_counts_casts_to_int():
 
 
 def test_get_written_counts_passes_query_parameters():
-    """
-    Pastikan start_time & end_time benar-benar diteruskan sebagai
-    query parameter (bukan hardcoded/salah urutan), supaya window
-    waktu perhitungan akurat.
-    """
     mock_client = MagicMock()
     mock_row = MagicMock()
     mock_row.rows_written = 0

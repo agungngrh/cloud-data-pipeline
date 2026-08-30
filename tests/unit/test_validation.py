@@ -34,12 +34,6 @@ def _patch_constants(monkeypatch):
 
 @pytest.fixture
 def valid_event():
-    """Fixture event dasar yang memenuhi semua kriteria validasi.
-
-    Field harus lengkap sesuai REQUIRED_FIELDS production
-    (vendor_id, rate_code_id, passenger_count, payment_type, trip_type)
-    plus semua AMOUNT_COMPONENT_FIELDS production.
-    """
     return {
         "event_id": "evt-123",
         "vendor_id": 1,

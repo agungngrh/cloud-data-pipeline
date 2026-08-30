@@ -79,11 +79,6 @@ def test_parse_event_fn_success(mock_reader, mock_load_schema, mock_avro_schema)
 def test_parse_event_fn_routes_corrupt_payload_to_quarantine(
     mock_reader, mock_load_schema, mock_avro_schema
 ):
-    """
-    Parse failure TIDAK BOLEH hilang diam-diam.
-    Event yang gagal parse harus di-route ke 'quarantine',
-    lengkap dengan raw_payload & alasan kegagalannya.
-    """
     mock_load_schema.return_value = mock_avro_schema
     mock_reader.side_effect = Exception("Corrupted Avro Data")
 

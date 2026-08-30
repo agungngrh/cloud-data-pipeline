@@ -8,11 +8,6 @@ DAG_FILE_PATH = Path("/opt/airflow/dags/batch_pipeline.py")
 
 
 def _load_batch_pipeline_module():
-    """
-    Import batch_pipeline.py via file path, bukan lewat 'airflow.dags...',
-    untuk menghindari ambiguitas nama package 'airflow' (folder project
-    lokal vs package Apache Airflow yang ter-install).
-    """
     spec = importlib.util.spec_from_file_location(
         "batch_pipeline_under_test", DAG_FILE_PATH
     )

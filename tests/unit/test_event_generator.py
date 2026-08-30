@@ -1,4 +1,3 @@
-# tests/unit/test_event_generator.py
 from datetime import datetime
 
 from src.streaming.event_generator import (

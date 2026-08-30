@@ -58,11 +58,6 @@ def test_ingestion_task_order(dagbag):
 
 
 def test_load_trip_data_raw_correct_bucket(dagbag):
-    """
-    Regression test: load_trip_data_raw harus pakai GCS bucket name,
-    BUKAN BigQuery table ID. Bug ini pernah terjadi karena salah
-    assign settings.bq_table_trip_raw ke parameter bucket.
-    """
     dag = dagbag.get_dag(dag_id=DAG_ID)
     task = dag.get_task("ingestion_layer.load_trip_data_raw")
     assert task.bucket == settings.gcs_bucket
@@ -86,9 +81,6 @@ def test_default_args_callbacks_attached(dagbag):
 
 
 def test_dbt_layer_dependency_chain(dagbag):
-    """
-    ingestion -> staging -> intermediate -> marts harus berurutan.
-    """
     dag = dagbag.get_dag(dag_id=DAG_ID)
 
     load = dag.get_task("ingestion_layer.load_trip_data_raw")

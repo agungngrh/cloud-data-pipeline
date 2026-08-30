@@ -190,10 +190,6 @@ def test_record_task_log_failure_skips_row_counting(mock_log_pipeline_run):
 def test_record_task_log_handles_bigquery_error_gracefully(
     mock_bq_client, mock_log_pipeline_run
 ):
-    """
-    Kalau BigQuery gagal saat hitung row count, task tetap harus
-    ter-log (dengan rows None), bukan crash callback Airflow.
-    """
     mock_bq_client.side_effect = GoogleCloudError("connection timeout")
 
     mock_task_instance = MagicMock()
